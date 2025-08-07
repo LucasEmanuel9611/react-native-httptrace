@@ -1,7 +1,7 @@
-import Clipboard from "@react-native-clipboard/clipboard";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Clipboard,
   FlatList,
   Modal,
   SafeAreaView,
