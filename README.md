@@ -1,24 +1,19 @@
 # react-native-httptrace
 
-Uma biblioteca completa e flexível para capturar e exibir requisições HTTP em tempo real em aplicações React Native.
+Uma biblioteca completa para capturar e exibir **TODAS** as requisições HTTP (fetch, XMLHttpRequest, axios) em tempo real em aplicações React Native.
 
 ## 🚀 Características
 
-- ✅ **Captura automática** de todas as requisições HTTP
-- ✅ **Modal reutilizável** em vez de tela fixa
-- ✅ **Configurações personalizáveis** (BASE_URL, maxRequests, etc.)
-- ✅ **Interface em tempo real** com atualizações automáticas
-- ✅ **Detalhes completos** de cada requisição (headers, body, response, error)
-- ✅ **Botão flutuante** para acesso global
-- ✅ **Limpeza de logs** com confirmação
-- ✅ **Geração de cURL** automática
-- ✅ **Cópia para clipboard** de JSON, headers, body, response e error
-- ✅ **Compartilhamento** de requisições
-- ✅ **Seções expansíveis** para melhor organização
-- ✅ **Cores por status** HTTP (verde para 2xx, laranja para 4xx, vermelho para 5xx)
-- ✅ **Programação funcional** com código limpo e autoexplicativo
+- ✅ **Captura UNIVERSAL** - fetch, XMLHttpRequest, axios - sem dependências
+- ✅ **Interceptors nativos** - funciona com qualquer biblioteca HTTP
+- ✅ **Múltiplas interfaces** - botão, shake, toast, badge, status indicator
+- ✅ **Modal integrado** - todos os componentes incluem o modal
+- ✅ **Detalhes completos** - headers, body, response, error, cURL
+- ✅ **Clipboard nativo** - cópia real para área de transferência
+- ✅ **Interface moderna** - StyleSheet nativo sem dependências
 - ✅ **TypeScript** com tipagem completa
-- ✅ **Styled Components** para UI moderna e responsiva
+- ✅ **Compatibilidade total** - código axios existente funciona igual
+- ✅ **Configurável** - controle total sobre comportamento
 
 ## 📦 Instalação
 
@@ -30,100 +25,170 @@ yarn add react-native-httptrace
 
 ## 🔧 Como Usar
 
-### 1. Configuração Inicial (Opcional)
+### Método 1: Automático (Recomendado)
+
+Captura **TODAS** as requests automaticamente:
 
 ```typescript
-import { networkLogger } from 'react-native-httptrace';
+import { useHttpTrace } from 'react-native-httptrace';
 
-// Configurar o logger
-networkLogger.configure({
-  baseUrl: 'https://api.meuapp.com',
-  maxRequests: 500,
-  enableConsoleLogs: true,
-});
+function App() {
+  useHttpTrace();
+  
+  return <YourApp />;
+}
 ```
 
-### 2. Aplicar o Logger em uma instância Axios
+### Método 2: Manual
+
+Controle quando iniciar/parar:
 
 ```typescript
 import { networkLogger } from 'react-native-httptrace';
+
+networkLogger.startLogging();
+```
+
+### Método 3: Compatibilidade Axios
+
+Seu código existente continua funcionando:
+
+```typescript
+import { useHttpTrace } from 'react-native-httptrace';
+import axios from 'axios';
+
+function App() {
+  const api = axios.create();
+  useHttpTrace(api);
+  
+  return <YourApp />;
+}
+```
+
+## 🎨 Componentes de Interface
+
+### HttpTraceButton - Botão Flutuante
+
+```typescript
+import { HttpTraceButton } from 'react-native-httptrace';
+
+<HttpTraceButton />
+```
+
+### HttpTraceShake - Abrir por Shake
+
+```typescript
+import { HttpTraceShake } from 'react-native-httptrace';
+
+<HttpTraceShake />
+```
+
+### HttpTraceBadge - Badge Discreto
+
+```typescript
+import { HttpTraceBadge } from 'react-native-httptrace';
+
+<HttpTraceBadge position="top-right" showOnlyErrors />
+```
+
+### HttpTraceToast - Toast de Erros
+
+```typescript
+import { HttpTraceToast } from 'react-native-httptrace';
+
+<HttpTraceToast showOnlyErrors duration={3000} />
+```
+
+### HttpTraceStatusIndicator - Indicador de Status
+
+```typescript
+import { HttpTraceStatusIndicator } from 'react-native-httptrace';
+
+<HttpTraceStatusIndicator position="top" />
+```
+
+### useHttpTraceDevMenu - Menu do Desenvolvedor
+
+```typescript
+import { useHttpTraceDevMenu } from 'react-native-httptrace';
+
+function App() {
+  useHttpTraceDevMenu();
+  return <YourApp />;
+}
+```
+
+## 🎯 Exemplos Completos
+
+### Exemplo 1: Setup Mínimo
+
+```typescript
+import React from 'react';
+import { View } from 'react-native';
+import { useHttpTrace, HttpTraceButton } from 'react-native-httptrace';
+
+function App() {
+  useHttpTrace();
+
+  return (
+    <View style={{ flex: 1 }}>
+      <YourApp />
+      <HttpTraceButton />
+    </View>
+  );
+}
+```
+
+### Exemplo 2: UI Avançada
+
+```typescript
+import React from 'react';
+import { View } from 'react-native';
+import { 
+  useHttpTrace, 
+  HttpTraceShake, 
+  HttpTraceToast,
+  HttpTraceBadge 
+} from 'react-native-httptrace';
+
+function App() {
+  useHttpTrace({
+    config: {
+      maxRequests: 500,
+      captureRequestBody: true,
+      captureResponseBody: true,
+    }
+  });
+
+  return (
+    <View style={{ flex: 1 }}>
+      <YourApp />
+      <HttpTraceShake />
+      <HttpTraceToast />
+      <HttpTraceBadge position="top-right" />
+    </View>
+  );
+}
+```
+
+### Exemplo 3: Migração Axios
+
+```typescript
+import React from 'react';
+import { useHttpTrace } from 'react-native-httptrace';
 import axios from 'axios';
 
 const api = axios.create({
   baseURL: 'https://api.exemplo.com',
 });
 
-// Aplicar o logger
-networkLogger.createAxiosInterceptors(api);
-```
-
-### 3. Usar o Hook com Configurações (Recomendado)
-
-```typescript
-import { useNetworkLogger } from 'react-native-httptrace';
-import axios from 'axios';
-
 function App() {
-  const api = axios.create({
-    baseURL: 'https://api.exemplo.com',
-  });
-
-  // Aplicar automaticamente com configurações
-  useNetworkLogger(api, {
-    baseUrl: 'https://api.meuapp.com',
+  useHttpTrace(api, {
     maxRequests: 1000,
     enableConsoleLogs: false,
   });
 
-  return (
-    // seu app
-  );
-}
-```
-
-### 4. Adicionar o Modal do Logger
-
-```typescript
-import { NetworkLoggerModal } from 'react-native-httptrace';
-import { useState } from 'react';
-
-function App() {
-  const [isModalVisible, setIsModalVisible] = useState(false);
-
-  return (
-    <View style={{ flex: 1 }}>
-      {/* Seu app */}
-      <NetworkLoggerModal
-        visible={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
-        title="Debug de Rede"
-        showCloseButton={true}
-      />
-    </View>
-  );
-}
-```
-
-### 5. Adicionar o Botão Flutuante
-
-```typescript
-import { NetworkLoggerButton } from 'react-native-httptrace';
-
-function App() {
-  const [isModalVisible, setIsModalVisible] = useState(false);
-
-  return (
-    <View style={{ flex: 1 }}>
-      {/* Seu app */}
-      <NetworkLoggerButton 
-        onPress={() => setIsModalVisible(true)} 
-      />
-      <NetworkLoggerModal
-        visible={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
-      />
-    </View>
-  );
+  return <YourApp />;
 }
 ```
 
@@ -133,53 +198,42 @@ function App() {
 
 ```typescript
 interface NetworkLogger {
-  createAxiosInterceptors(axiosInstance: AxiosInstance): void;
-  subscribe(callback: (requests: NetworkRequest[]) => void): () => void;
+  startLogging(): void;
+  stopLogging(): void;
   clearRequests(): void;
+  subscribe(callback: (requests: NetworkRequest[]) => void): () => void;
   configure(config: Partial<NetworkLoggerConfig>): void;
+  createAxiosInterceptors(axiosInstance: any): void;
 }
 ```
 
-### `useNetworkLogger`
+### `useHttpTrace`
 
 ```typescript
-function useNetworkLogger(
-  axiosInstance?: AxiosInstance,
-  config?: Partial<NetworkLoggerConfig>
-): void;
+function useHttpTrace(options?: {
+  axiosInstance?: any;
+  config?: Partial<NetworkLoggerConfig>;
+  autoStart?: boolean;
+}): {
+  startLogging: () => void;
+  stopLogging: () => void;
+  clearRequests: () => void;
+};
 ```
 
-### `NetworkLoggerModal`
-
-```typescript
-interface NetworkLoggerModalProps {
-  visible: boolean;
-  onClose: () => void;
-  title?: string;
-  showCloseButton?: boolean;
-}
-```
-
-### `NetworkLoggerButton`
-
-```typescript
-interface NetworkLoggerButtonProps {
-  onPress: () => void;
-  visible?: boolean;
-}
-```
-
-### `NetworkLoggerConfig`
+### Configuração
 
 ```typescript
 interface NetworkLoggerConfig {
   baseUrl?: string;
   maxRequests?: number;
   enableConsoleLogs?: boolean;
+  captureRequestBody?: boolean;
+  captureResponseBody?: boolean;
 }
 ```
 
-### `NetworkRequest`
+### Request
 
 ```typescript
 interface NetworkRequest {
@@ -196,112 +250,110 @@ interface NetworkRequest {
   endTime?: number;
   duration?: number;
   timestamp: Date;
+  type?: 'fetch' | 'xhr' | 'axios';
 }
 ```
 
-## 🎯 Exemplo Completo
+## 📱 Componentes
+
+### HttpTraceButton
 
 ```typescript
-import React, { useState } from 'react';
-import { View, Button } from 'react-native';
-import { 
-  useNetworkLogger, 
-  NetworkLoggerModal, 
-  NetworkLoggerButton 
-} from 'react-native-httptrace';
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: 'https://jsonplaceholder.typicode.com',
-});
-
-function App() {
-  const [isModalVisible, setIsModalVisible] = useState(false);
-
-  // Aplicar o logger com configurações
-  useNetworkLogger(api, {
-    baseUrl: 'https://jsonplaceholder.typicode.com',
-    maxRequests: 1000,
-    enableConsoleLogs: true,
-  });
-
-  const fetchData = async () => {
-    try {
-      await api.get('/posts/1');
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Button title="Fazer Requisição" onPress={fetchData} />
-      
-      <NetworkLoggerButton 
-        onPress={() => setIsModalVisible(true)} 
-      />
-      
-      <NetworkLoggerModal
-        visible={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
-        title="Debug de Rede"
-        showCloseButton={true}
-      />
-    </View>
-  );
+interface HttpTraceButtonProps {
+  visible?: boolean;
 }
 ```
 
-## 🎨 Funcionalidades da Interface
+### HttpTraceShake
 
-### Modal Reutilizável
-- **Apresentação como modal** em vez de tela fixa
-- **Título personalizável** via props
-- **Botão de fechar** opcional
-- **Animação suave** de entrada e saída
+```typescript
+interface HttpTraceShakeProps {
+  enabled?: boolean;
+  shakeThreshold?: number;
+}
+```
 
-### Lista de Requisições
-- **Método HTTP** com cor baseada no status
-- **URL** da requisição
-- **Status** com cores (verde=2xx, laranja=4xx, vermelho=5xx)
-- **Duração** da requisição
-- **Timestamp** de quando foi feita
+### HttpTraceBadge
 
-### Detalhes da Requisição
-- **Headers** expansíveis com cópia
-- **Body** expansível com cópia
-- **Response** expansível com cópia
-- **Error** expansível com cópia (se houver)
-- **cURL Command** gerado automaticamente
+```typescript
+interface HttpTraceBadgeProps {
+  position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  showOnlyErrors?: boolean;
+  showCount?: boolean;
+}
+```
 
-### Ações Disponíveis
-- **Copy JSON** - Copia toda a requisição em JSON
-- **Copy cURL** - Copia o comando cURL gerado
-- **Share** - Compartilha a requisição
-- **Copy** individual para cada seção
+### HttpTraceToast
+
+```typescript
+interface HttpTraceToastProps {
+  position?: 'top' | 'bottom';
+  duration?: number;
+  showOnlyErrors?: boolean;
+  maxWidth?: number;
+}
+```
+
+### HttpTraceStatusIndicator
+
+```typescript
+interface HttpTraceStatusIndicatorProps {
+  position?: 'top' | 'bottom';
+  showPending?: boolean;
+  showErrors?: boolean;
+}
+```
 
 ## ⚙️ Configurações
 
-### `baseUrl`
-URL base para requisições que não têm URL completa. Padrão: `process.env.BASE_URL` ou `"http://localhost"`
-
 ### `maxRequests`
-Número máximo de requisições mantidas em memória. Padrão: `1000`
+Número máximo de requisições em memória. Padrão: `1000`
 
 ### `enableConsoleLogs`
-Habilita ou desabilita logs no console. Padrão: `true`
+Logs no console. Padrão: `true`
 
-## 🏗️ Arquitetura
+### `captureRequestBody`
+Captura corpo das requests. Padrão: `true`
 
-A biblioteca segue os princípios de **código limpo** e **programação funcional**:
+### `captureResponseBody`
+Captura corpo das responses. Padrão: `true`
 
-- **Imutabilidade**: Estado nunca é modificado diretamente
-- **Funções puras**: Sem side effects desnecessários
-- **Composição**: Funções pequenas e reutilizáveis
-- **Autoexplicativo**: Nomes descritivos e código legível
-- **SOLID**: Cada função tem uma responsabilidade única
-- **Styled Components**: UI moderna e responsiva
-- **Configurável**: Flexível para diferentes projetos
+## 🚀 Migração
+
+### De versões antigas
+
+Seu código existente continua funcionando:
+
+```typescript
+// ✅ Funciona igual
+useNetworkLogger(axiosInstance) → useHttpTrace(axiosInstance)
+NetworkLoggerButton → HttpTraceButton
+NetworkLoggerModal → HttpTraceModal
+```
+
+### De outras libs
+
+```typescript
+// Flipper Network Plugin → react-native-httptrace
+useHttpTrace();
+
+// React Native Debugger → react-native-httptrace  
+<HttpTraceButton />
+
+// Custom solutions → react-native-httptrace
+<HttpTraceShake />
+```
+
+## 🔧 Funcionalidades
+
+- **Universal**: Captura fetch, XMLHttpRequest, axios
+- **Sem setup**: `useHttpTrace()` e pronto
+- **Múltiplas UIs**: Botão, shake, toast, badge
+- **Modal integrado**: Todos os componentes incluem
+- **Clipboard real**: Cópia funcional
+- **Sem styled-components**: Bundle menor
+- **TypeScript**: Tipagem completa
+- **Configurável**: Controle total
 
 ## 📝 Licença
 
@@ -309,4 +361,4 @@ MIT
 
 ## 🤝 Contribuição
 
-Contribuições são bem-vindas! Por favor, leia o guia de contribuição antes de submeter um PR. 
+PRs são bem-vindos! 

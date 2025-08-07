@@ -1,5 +1,3 @@
-import { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
-
 export interface NetworkRequest {
   id: string;
   method: string;
@@ -14,12 +12,15 @@ export interface NetworkRequest {
   endTime?: number;
   duration?: number;
   timestamp: Date;
+  type?: "fetch" | "xhr" | "axios";
 }
 
 export interface NetworkLoggerConfig {
   baseUrl?: string;
   maxRequests?: number;
   enableConsoleLogs?: boolean;
+  captureRequestBody?: boolean;
+  captureResponseBody?: boolean;
 }
 
 type NetworkLoggerCallback = (requests: NetworkRequest[]) => void;
@@ -27,33 +28,388 @@ type NetworkLoggerCallback = (requests: NetworkRequest[]) => void;
 interface NetworkLoggerState {
   requests: NetworkRequest[];
   subscribers: NetworkLoggerCallback[];
-  appliedInstances: Set<AxiosInstance>;
   config: NetworkLoggerConfig;
+  isActive: boolean;
+  originalFetch?: typeof fetch;
+  originalXHROpen?: typeof XMLHttpRequest.prototype.open;
+  originalXHRSend?: typeof XMLHttpRequest.prototype.send;
 }
 
 const defaultConfig: NetworkLoggerConfig = {
-  baseUrl: process.env.BASE_URL || 'http://localhost',
+  baseUrl: "http://localhost",
   maxRequests: 1000,
   enableConsoleLogs: true,
+  captureRequestBody: true,
+  captureResponseBody: true,
 };
 
 const createNetworkLoggerState = (
-  config: NetworkLoggerConfig = {},
+  config: NetworkLoggerConfig = {}
 ): NetworkLoggerState => ({
   requests: [],
   subscribers: [],
-  appliedInstances: new Set(),
   config: { ...defaultConfig, ...config },
+  isActive: false,
 });
 
 let networkLoggerState = createNetworkLoggerState();
 
+const generateId = (): string => {
+  return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+};
+
 const notifySubscribers = (): void => {
   const currentRequests = [...networkLoggerState.requests];
-
-  networkLoggerState.subscribers.forEach(callback => {
+  networkLoggerState.subscribers.forEach((callback) => {
     callback(currentRequests);
   });
+};
+
+const addRequest = (request: NetworkRequest): void => {
+  const currentRequests = networkLoggerState.requests;
+  const newRequestAtBeginning = [request, ...currentRequests];
+  const keepOnlyLastRequests = newRequestAtBeginning.slice(
+    0,
+    networkLoggerState.config.maxRequests || 1000
+  );
+
+  networkLoggerState = {
+    ...networkLoggerState,
+    requests: keepOnlyLastRequests,
+  };
+
+  notifySubscribers();
+};
+
+const updateRequest = (id: string, updates: Partial<NetworkRequest>): void => {
+  const updateRequestById = (req: NetworkRequest) =>
+    req.id === id ? { ...req, ...updates } : req;
+
+  const updatedRequests = networkLoggerState.requests.map(updateRequestById);
+
+  networkLoggerState = {
+    ...networkLoggerState,
+    requests: updatedRequests,
+  };
+
+  notifySubscribers();
+};
+
+const normalizeHeaders = (headers: any): Record<string, string> => {
+  const normalized: Record<string, string> = {};
+
+  if (headers) {
+    if (headers.entries) {
+      for (const [key, value] of headers.entries()) {
+        normalized[key.toLowerCase()] = String(value);
+      }
+    } else if (typeof headers === "object") {
+      Object.keys(headers).forEach((key) => {
+        normalized[key.toLowerCase()] = String(headers[key]);
+      });
+    }
+  }
+
+  return normalized;
+};
+
+const parseBody = async (body: any): Promise<any> => {
+  if (!body) return undefined;
+
+  if (typeof body === "string") return body;
+  if (body instanceof FormData) return "[FormData]";
+  if (body instanceof ArrayBuffer) return "[ArrayBuffer]";
+  if (body instanceof Blob) {
+    try {
+      return await body.text();
+    } catch {
+      return "[Blob]";
+    }
+  }
+
+  try {
+    return JSON.stringify(body);
+  } catch {
+    return String(body);
+  }
+};
+
+const parseResponse = async (response: any): Promise<any> => {
+  if (!networkLoggerState.config.captureResponseBody) return undefined;
+
+  try {
+    if (response && typeof response.clone === "function") {
+      const cloned = response.clone();
+      const text = await cloned.text();
+
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
+    }
+    return response;
+  } catch {
+    return "[Unable to parse response]";
+  }
+};
+
+// Fetch interceptor
+const createFetchInterceptor = () => {
+  if (!networkLoggerState.originalFetch) {
+    networkLoggerState.originalFetch = globalThis.fetch;
+  }
+
+  globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const requestId = generateId();
+    const startTime = Date.now();
+    const url = typeof input === "string" ? input : input.toString();
+    const method = init?.method?.toUpperCase() || "GET";
+
+    let requestBody: any;
+    if (networkLoggerState.config.captureRequestBody && init?.body) {
+      requestBody = await parseBody(init.body);
+    }
+
+    const request: NetworkRequest = {
+      id: requestId,
+      method,
+      url,
+      fullUrl: url,
+      headers: normalizeHeaders(init?.headers),
+      body: requestBody,
+      startTime,
+      timestamp: new Date(),
+      type: "fetch",
+    };
+
+    addRequest(request);
+
+    try {
+      const response = await networkLoggerState.originalFetch!(input, init);
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      const responseBody = await parseResponse(response);
+
+      updateRequest(requestId, {
+        status: response.status,
+        response: responseBody,
+        endTime,
+        duration,
+      });
+
+      return response;
+    } catch (error: any) {
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      updateRequest(requestId, {
+        error: error.message || String(error),
+        endTime,
+        duration,
+      });
+
+      throw error;
+    }
+  };
+};
+
+// XMLHttpRequest interceptor
+const createXHRInterceptor = () => {
+  if (!networkLoggerState.originalXHROpen) {
+    networkLoggerState.originalXHROpen = XMLHttpRequest.prototype.open;
+    networkLoggerState.originalXHRSend = XMLHttpRequest.prototype.send;
+  }
+
+  XMLHttpRequest.prototype.open = function (
+    method: string,
+    url: string | URL,
+    ...args: any[]
+  ) {
+    const requestId = generateId();
+    const startTime = Date.now();
+
+    (this as any)._networkLogger = {
+      id: requestId,
+      method: method.toUpperCase(),
+      url: url.toString(),
+      startTime,
+    };
+
+    return networkLoggerState.originalXHROpen!.call(
+      this,
+      method,
+      url.toString(),
+      ...args
+    );
+  };
+
+  XMLHttpRequest.prototype.send = function (body?: any) {
+    const loggerData = (this as any)._networkLogger;
+
+    if (loggerData) {
+      let requestBody: any;
+      if (networkLoggerState.config.captureRequestBody && body) {
+        requestBody = parseBody(body);
+      }
+
+      const request: NetworkRequest = {
+        id: loggerData.id,
+        method: loggerData.method,
+        url: loggerData.url,
+        fullUrl: loggerData.url,
+        headers: {},
+        body: requestBody,
+        startTime: loggerData.startTime,
+        timestamp: new Date(),
+        type: "xhr",
+      };
+
+      addRequest(request);
+
+      const originalOnReadyStateChange = this.onreadystatechange;
+
+      this.onreadystatechange = function (event?: Event) {
+        if (this.readyState === 4) {
+          const endTime = Date.now();
+          const duration = endTime - loggerData.startTime;
+
+          let responseBody: any;
+          if (networkLoggerState.config.captureResponseBody) {
+            try {
+              responseBody = this.responseText
+                ? JSON.parse(this.responseText)
+                : this.responseText;
+            } catch {
+              responseBody = this.responseText;
+            }
+          }
+
+          updateRequest(loggerData.id, {
+            status: this.status,
+            response: responseBody,
+            endTime,
+            duration,
+          });
+        }
+
+        if (originalOnReadyStateChange && event) {
+          originalOnReadyStateChange.call(this, event);
+        }
+      };
+    }
+
+    return networkLoggerState.originalXHRSend!.call(this, body);
+  };
+};
+
+const createAxiosInterceptor = (axiosInstance: any) => {
+  if (!axiosInstance || !axiosInstance.interceptors) {
+    return;
+  }
+
+  axiosInstance.interceptors.request.use(
+    (config: any) => {
+      const requestId = generateId();
+      const startTime = Date.now();
+
+      const request: NetworkRequest = {
+        id: requestId,
+        method: config.method?.toUpperCase() || "GET",
+        url: config.url || "",
+        fullUrl: config.url,
+        headers: normalizeHeaders(config.headers),
+        body: config.data,
+        startTime,
+        timestamp: new Date(),
+        type: "axios",
+      };
+
+      addRequest(request);
+
+      return {
+        ...config,
+        _networkLoggerId: requestId,
+        _networkLoggerStartTime: startTime,
+      };
+    },
+    (error: any) => Promise.reject(error)
+  );
+
+  axiosInstance.interceptors.response.use(
+    (response: any) => {
+      const requestId = response.config?._networkLoggerId;
+      const startTime = response.config?._networkLoggerStartTime;
+
+      if (requestId && startTime) {
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+
+        updateRequest(requestId, {
+          status: response.status,
+          response: response.data,
+          endTime,
+          duration,
+        });
+      }
+
+      return response;
+    },
+    (error: any) => {
+      const requestId = error.config?._networkLoggerId;
+      const startTime = error.config?._networkLoggerStartTime;
+
+      if (requestId && startTime) {
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+
+        updateRequest(requestId, {
+          status: error.response?.status,
+          error: error.response?.data || error.message,
+          endTime,
+          duration,
+        });
+      }
+
+      return Promise.reject(error);
+    }
+  );
+};
+
+const startLogging = (): void => {
+  if (networkLoggerState.isActive) return;
+
+  createFetchInterceptor();
+  createXHRInterceptor();
+
+  networkLoggerState.isActive = true;
+
+  if (networkLoggerState.config.enableConsoleLogs) {
+    console.log("🌐 HttpTrace: Native network interceptors started");
+  }
+};
+
+const stopLogging = (): void => {
+  if (!networkLoggerState.isActive) return;
+
+  if (networkLoggerState.originalFetch) {
+    globalThis.fetch = networkLoggerState.originalFetch;
+  }
+
+  if (networkLoggerState.originalXHROpen) {
+    XMLHttpRequest.prototype.open = networkLoggerState.originalXHROpen;
+  }
+
+  if (networkLoggerState.originalXHRSend) {
+    XMLHttpRequest.prototype.send = networkLoggerState.originalXHRSend;
+  }
+
+  networkLoggerState.isActive = false;
+
+  if (networkLoggerState.config.enableConsoleLogs) {
+    console.log("🌐 HttpTrace: Native network interceptors stopped");
+  }
 };
 
 const clearRequests = (): void => {
@@ -74,7 +430,9 @@ const subscribe = (callback: NetworkLoggerCallback): (() => void) => {
   return () => {
     networkLoggerState = {
       ...networkLoggerState,
-      subscribers: networkLoggerState.subscribers.filter(cb => cb !== callback),
+      subscribers: networkLoggerState.subscribers.filter(
+        (cb) => cb !== callback
+      ),
     };
   };
 };
@@ -86,149 +444,12 @@ const configure = (config: Partial<NetworkLoggerConfig>): void => {
   };
 };
 
-const createAxiosInterceptors = (axiosInstance: AxiosInstance): void => {
-  const addRequest = (request: NetworkRequest): void => {
-    const currentRequests = networkLoggerState.requests;
-    const newRequestAtBeginning = [request, ...currentRequests];
-    const keepOnlyLastRequests = newRequestAtBeginning.slice(
-      0,
-      networkLoggerState.config.maxRequests || 1000,
-    );
-
-    networkLoggerState = {
-      ...networkLoggerState,
-      requests: keepOnlyLastRequests,
-    };
-
-    notifySubscribers();
-  };
-
-  const updateRequest = (
-    id: string,
-    updates: Partial<NetworkRequest>,
-  ): void => {
-    const updateRequestById = (req: NetworkRequest) =>
-      req.id === id ? { ...req, ...updates } : req;
-
-    const updatedRequests = networkLoggerState.requests.map(updateRequestById);
-
-    networkLoggerState = {
-      ...networkLoggerState,
-      requests: updatedRequests,
-    };
-
-    notifySubscribers();
-  };
-
-  if (
-    !axiosInstance ||
-    networkLoggerState.appliedInstances.has(axiosInstance)
-  ) {
-    return;
-  }
-
-  networkLoggerState = {
-    ...networkLoggerState,
-    appliedInstances: new Set([
-      ...networkLoggerState.appliedInstances,
-      axiosInstance,
-    ]),
-  };
-
-  axiosInstance.interceptors.request.use(
-    async (config: InternalAxiosRequestConfig<any>) => {
-      const requestId = Math.random().toString(36).substr(2, 9);
-      const startTime = Date.now();
-
-      let fullUrl = config.url;
-      if (
-        config.baseURL &&
-        !fullUrl?.startsWith('http://') &&
-        !fullUrl?.startsWith('https://')
-      ) {
-        fullUrl = `${config.baseURL}${
-          fullUrl?.startsWith('/') ? '' : '/'
-        }${fullUrl}`;
-      } else if (
-        !fullUrl?.startsWith('http://') &&
-        !fullUrl?.startsWith('https://')
-      ) {
-        const { baseUrl } = networkLoggerState.config;
-        fullUrl = `${baseUrl}${fullUrl?.startsWith('/') ? '' : '/'}${fullUrl}`;
-      }
-
-      const request: NetworkRequest = {
-        id: requestId,
-        method: config.method?.toUpperCase() || 'GET',
-        url: config.url || '',
-        fullUrl,
-        headers: config.headers || {},
-        body: config.data,
-        startTime,
-        timestamp: new Date(),
-      };
-
-      addRequest(request);
-
-      return {
-        ...config,
-        requestId,
-        startTime,
-      };
-    },
-    (error: any) => {
-      if (networkLoggerState.config.enableConsoleLogs) {
-        console.error('Network logger request interceptor error:', error);
-      }
-      return Promise.reject(error);
-    },
-  );
-
-  axiosInstance.interceptors.response.use(
-    (response: any) => {
-      const requestId = response.config?.requestId;
-      const startTime = response.config?.startTime;
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-
-      if (requestId) {
-        updateRequest(requestId, {
-          status: response.status,
-          response: response.data,
-          endTime,
-          duration,
-        });
-      }
-
-      return response;
-    },
-    (error: any) => {
-      const requestId = error.config?.requestId;
-      const startTime = error.config?.startTime;
-      const endTime = Date.now();
-      const duration = startTime ? endTime - startTime : undefined;
-
-      if (requestId) {
-        updateRequest(requestId, {
-          status: error.response?.status,
-          error: error.response?.data || error.message,
-          endTime,
-          duration,
-        });
-      }
-
-      return Promise.reject(error);
-    },
-  );
-
-  if (networkLoggerState.config.enableConsoleLogs) {
-    console.log('Network logger: Successfully applied to axios instance');
-  }
-};
-
 export const networkLogger = {
+  startLogging,
+  stopLogging,
   clearRequests,
   subscribe,
-  createAxiosInterceptors,
   configure,
+  createAxiosInterceptor,
+  createAxiosInterceptors: createAxiosInterceptor,
 };
