@@ -1,21 +1,30 @@
-import React from "react";
+import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { HttpTraceModal } from "./HttpTraceModal";
 
 interface HttpTraceButtonProps {
-  onPress: () => void;
   visible?: boolean;
 }
 
-export function HttpTraceButton({
-  onPress,
-  visible = true,
-}: HttpTraceButtonProps) {
+export function HttpTraceButton({ visible = true }: HttpTraceButtonProps) {
+  const [modalVisible, setModalVisible] = useState(false);
+
   if (!visible) return null;
 
   return (
-    <TouchableOpacity style={styles.floatingButton} onPress={onPress}>
-      <Text style={styles.buttonText}>🌐</Text>
-    </TouchableOpacity>
+    <>
+      <TouchableOpacity
+        style={styles.floatingButton}
+        onPress={() => setModalVisible(true)}
+      >
+        <Text style={styles.buttonText}>🌐</Text>
+      </TouchableOpacity>
+
+      <HttpTraceModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+      />
+    </>
   );
 }
 

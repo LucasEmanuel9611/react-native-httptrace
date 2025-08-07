@@ -25,6 +25,7 @@ export function HttpTraceToast({
 }: HttpTraceToastProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [lastError, setLastError] = useState<NetworkRequest | null>(null);
+  const [shouldShowToast, setShouldShowToast] = useState(false);
   const [slideAnim] = useState(new Animated.Value(-100));
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export function HttpTraceToast({
 
       if (latestError && (!lastError || latestError.id !== lastError.id)) {
         setLastError(latestError);
+        setShouldShowToast(true);
         showToast();
       }
     });
@@ -56,7 +58,9 @@ export function HttpTraceToast({
         duration: 300,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]).start(() => {
+      setShouldShowToast(false);
+    });
   };
 
   const getPositionStyle = () => {
@@ -87,30 +91,34 @@ export function HttpTraceToast({
     return `${lastError.method} ${lastError.url} - ${lastError.status}`;
   };
 
-  if (!lastError) return null;
+  if (!lastError && !modalVisible) return null;
 
   return (
     <>
-      <Animated.View style={[getPositionStyle()]}>
-        <TouchableOpacity
-          style={[styles.toast, { maxWidth }]}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.toastContent}>
-            <Text style={styles.toastTitle}>🚨 Erro de Rede</Text>
-            <Text style={styles.toastMessage} numberOfLines={1}>
-              {getErrorMessage()}
-            </Text>
-            <Text style={styles.toastAction}>Toque para ver detalhes</Text>
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
+      {shouldShowToast && (
+        <Animated.View style={[getPositionStyle()]}>
+          <TouchableOpacity
+            style={[styles.toast, { maxWidth }]}
+            onPress={() => setModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.toastContent}>
+              <Text style={styles.toastTitle}>🚨 Erro de Rede</Text>
+              <Text style={styles.toastMessage} numberOfLines={1}>
+                {getErrorMessage()}
+              </Text>
+              <Text style={styles.toastAction}>Toque para ver detalhes</Text>
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
 
-      <HttpTraceModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-      />
+      {lastError && (
+        <HttpTraceModal
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+        />
+      )}
     </>
   );
 }
