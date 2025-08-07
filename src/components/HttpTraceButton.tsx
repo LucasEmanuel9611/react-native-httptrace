@@ -1,15 +1,15 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import React from "react";
+import { StyleSheet, Text, TouchableOpacity } from "react-native";
 
-interface NetworkLoggerButtonProps {
+interface HttpTraceButtonProps {
   onPress: () => void;
   visible?: boolean;
 }
 
-export function NetworkLoggerButton({
+export function HttpTraceButton({
   onPress,
   visible = true,
-}: NetworkLoggerButtonProps) {
+}: HttpTraceButtonProps) {
   if (!visible) return null;
 
   return (
@@ -21,17 +21,17 @@ export function NetworkLoggerButton({
 
 const styles = StyleSheet.create({
   floatingButton: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 20,
     right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#007AFF",
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -42,6 +42,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 24,
-    color: '#fff',
+    color: "#fff",
   },
 });
