@@ -14,6 +14,7 @@ Uma biblioteca completa para capturar e exibir **TODAS** as requisições HTTP (
 - ✅ **TypeScript** com tipagem completa
 - ✅ **Compatibilidade total** - código axios existente funciona igual
 - ✅ **Configurável** - controle total sobre comportamento
+- ✅ **Código local** - comando para copiar código-fonte e usar sem dependência npm
 
 ## 📦 Instalação
 
@@ -21,6 +22,45 @@ Uma biblioteca completa para capturar e exibir **TODAS** as requisições HTTP (
 npm install react-native-httptrace
 # ou
 yarn add react-native-httptrace
+```
+
+## 📥 Copiar Código-Fonte (Uso Local)
+
+Se você prefere ter o código localmente no seu projeto (para customização ou para não depender do npm), você pode copiar o código-fonte:
+
+```bash
+npx react-native-httptrace copy
+```
+
+Ou especifique um caminho customizado:
+
+```bash
+npx react-native-httptrace copy ./src
+npx react-native-httptrace copy ./lib/utils
+```
+
+Este comando irá:
+- Copiar todo o código-fonte para o diretório `httptrace/` no caminho especificado (ou no diretório atual se não especificado)
+- Manter a estrutura de arquivos original
+- Criar um README com instruções de uso
+
+Depois de copiar, você pode:
+
+1. **Atualizar suas importações** para usar os arquivos locais:
+```typescript
+import { useHttpTrace } from './httptrace/hooks/useHttpTrace';
+import { HttpTraceButton } from './httptrace/components/HttpTraceButton';
+import { networkLogger } from './httptrace/services/network-logger';
+```
+
+2. **Desinstalar a biblioteca npm** (opcional):
+```bash
+npm uninstall react-native-httptrace
+```
+
+3. **Remover o código local** quando não precisar mais:
+```bash
+rm -rf httptrace
 ```
 
 ## 🔧 Como Usar

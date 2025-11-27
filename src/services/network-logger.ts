@@ -4,6 +4,7 @@ export interface NetworkRequest {
   url: string;
   fullUrl?: string;
   headers: Record<string, string>;
+  responseHeaders?: Record<string, string>;
   body?: any;
   status?: number;
   response?: any;
@@ -15,12 +16,10 @@ export interface NetworkRequest {
   type?: "fetch" | "xhr" | "axios";
 }
 
+type RequestFilter = (request: NetworkRequest) => boolean;
+
 export interface NetworkLoggerConfig {
-  baseUrl?: string;
   maxRequests?: number;
-  enableConsoleLogs?: boolean;
-  captureRequestBody?: boolean;
-  captureResponseBody?: boolean;
 }
 
 type NetworkLoggerCallback = (requests: NetworkRequest[]) => void;
@@ -33,14 +32,25 @@ interface NetworkLoggerState {
   originalFetch?: typeof fetch;
   originalXHROpen?: typeof XMLHttpRequest.prototype.open;
   originalXHRSend?: typeof XMLHttpRequest.prototype.send;
+  originalXHRSetRequestHeader?: typeof XMLHttpRequest.prototype.setRequestHeader;
 }
 
+const builtinFilters: RequestFilter[] = [
+  (request: NetworkRequest): boolean => request.method.toLowerCase() !== "head",
+  (request: NetworkRequest): boolean =>
+    !shouldIgnoreLocalHostUrls(request.url) &&
+    !shouldIgnoreLocalHostUrls(request.fullUrl || ""),
+];
+
+const applyFilters = (
+  request: NetworkRequest,
+  filters: RequestFilter[]
+): boolean => {
+  return filters.every((filter) => filter(request));
+};
+
 const defaultConfig: NetworkLoggerConfig = {
-  baseUrl: "http://localhost",
   maxRequests: 1000,
-  enableConsoleLogs: true,
-  captureRequestBody: true,
-  captureResponseBody: true,
 };
 
 const createNetworkLoggerState = (
@@ -65,7 +75,27 @@ const notifySubscribers = (): void => {
   });
 };
 
+const shouldIgnoreLocalHostUrls = (url: string): boolean => {
+  const localPatterns = [
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "192.168.",
+    "10.0.",
+    "172.16.",
+    "file://",
+  ];
+
+  return localPatterns.some((pattern) =>
+    url.toLowerCase().includes(pattern.toLowerCase())
+  );
+};
+
 const addRequest = (request: NetworkRequest): void => {
+  if (!applyFilters(request, builtinFilters)) {
+    return;
+  }
+
   const currentRequests = networkLoggerState.requests;
   const newRequestAtBeginning = [request, ...currentRequests];
   const keepOnlyLastRequests = newRequestAtBeginning.slice(
@@ -95,37 +125,17 @@ const updateRequest = (id: string, updates: Partial<NetworkRequest>): void => {
   notifySubscribers();
 };
 
-const normalizeHeaders = (headers: any): Record<string, string> => {
-  const normalized: Record<string, string> = {};
+const parseBodySync = (body: any): any => {
+  if (body === undefined || body === null) return undefined;
 
-  if (headers) {
-    if (headers.entries) {
-      for (const [key, value] of headers.entries()) {
-        normalized[key.toLowerCase()] = String(value);
-      }
-    } else if (typeof headers === "object") {
-      Object.keys(headers).forEach((key) => {
-        normalized[key.toLowerCase()] = String(headers[key]);
-      });
-    }
+  if (typeof body === "string") {
+    const trimmed = body.trim();
+    if (trimmed.length === 0) return undefined;
+    return body;
   }
-
-  return normalized;
-};
-
-const parseBody = async (body: any): Promise<any> => {
-  if (!body) return undefined;
-
-  if (typeof body === "string") return body;
   if (body instanceof FormData) return "[FormData]";
   if (body instanceof ArrayBuffer) return "[ArrayBuffer]";
-  if (body instanceof Blob) {
-    try {
-      return await body.text();
-    } catch {
-      return "[Blob]";
-    }
-  }
+  if (body instanceof Blob) return "[Blob]";
 
   try {
     return JSON.stringify(body);
@@ -134,93 +144,28 @@ const parseBody = async (body: any): Promise<any> => {
   }
 };
 
-const parseResponse = async (response: any): Promise<any> => {
-  if (!networkLoggerState.config.captureResponseBody) return undefined;
-
-  try {
-    if (response && typeof response.clone === "function") {
-      const cloned = response.clone();
-      const text = await cloned.text();
-
-      try {
-        return JSON.parse(text);
-      } catch {
-        return text;
-      }
-    }
-    return response;
-  } catch {
-    return "[Unable to parse response]";
-  }
-};
-
-// Fetch interceptor
-const createFetchInterceptor = () => {
-  if (!networkLoggerState.originalFetch) {
-    networkLoggerState.originalFetch = globalThis.fetch;
-  }
-
-  globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const requestId = generateId();
-    const startTime = Date.now();
-    const url = typeof input === "string" ? input : input.toString();
-    const method = init?.method?.toUpperCase() || "GET";
-
-    let requestBody: any;
-    if (networkLoggerState.config.captureRequestBody && init?.body) {
-      requestBody = await parseBody(init.body);
-    }
-
-    const request: NetworkRequest = {
-      id: requestId,
-      method,
-      url,
-      fullUrl: url,
-      headers: normalizeHeaders(init?.headers),
-      body: requestBody,
-      startTime,
-      timestamp: new Date(),
-      type: "fetch",
-    };
-
-    addRequest(request);
-
-    try {
-      const response = await networkLoggerState.originalFetch!(input, init);
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-
-      const responseBody = await parseResponse(response);
-
-      updateRequest(requestId, {
-        status: response.status,
-        response: responseBody,
-        endTime,
-        duration,
-      });
-
-      return response;
-    } catch (error: any) {
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-
-      updateRequest(requestId, {
-        error: error.message || String(error),
-        endTime,
-        duration,
-      });
-
-      throw error;
-    }
-  };
-};
-
-// XMLHttpRequest interceptor
 const createXHRInterceptor = () => {
   if (!networkLoggerState.originalXHROpen) {
     networkLoggerState.originalXHROpen = XMLHttpRequest.prototype.open;
     networkLoggerState.originalXHRSend = XMLHttpRequest.prototype.send;
+    networkLoggerState.originalXHRSetRequestHeader =
+      XMLHttpRequest.prototype.setRequestHeader;
   }
+
+  XMLHttpRequest.prototype.setRequestHeader = function (
+    name: string,
+    value: string
+  ) {
+    const loggerData = (this as any)._networkLogger;
+    if (loggerData && loggerData.headers) {
+      loggerData.headers[name] = value;
+    }
+    return networkLoggerState.originalXHRSetRequestHeader!.call(
+      this,
+      name,
+      value
+    );
+  };
 
   XMLHttpRequest.prototype.open = function (
     method: string,
@@ -235,6 +180,7 @@ const createXHRInterceptor = () => {
       method: method.toUpperCase(),
       url: url.toString(),
       startTime,
+      headers: {},
     };
 
     return networkLoggerState.originalXHROpen!.call(
@@ -249,18 +195,13 @@ const createXHRInterceptor = () => {
     const loggerData = (this as any)._networkLogger;
 
     if (loggerData) {
-      let requestBody: any;
-      if (networkLoggerState.config.captureRequestBody && body) {
-        requestBody = parseBody(body);
-      }
-
       const request: NetworkRequest = {
         id: loggerData.id,
         method: loggerData.method,
         url: loggerData.url,
         fullUrl: loggerData.url,
-        headers: {},
-        body: requestBody,
+        headers: loggerData.headers,
+        body: parseBodySync(body),
         startTime: loggerData.startTime,
         timestamp: new Date(),
         type: "xhr",
@@ -276,19 +217,61 @@ const createXHRInterceptor = () => {
           const duration = endTime - loggerData.startTime;
 
           let responseBody: any;
-          if (networkLoggerState.config.captureResponseBody) {
-            try {
+          try {
+            if (this.responseType === "" || this.responseType === "text") {
               responseBody = this.responseText
                 ? JSON.parse(this.responseText)
-                : this.responseText;
+                : `${this.responseText}`;
+            } else if (this.responseType === "blob" && this.response) {
+              try {
+                const blob = this.response as Blob;
+                if (blob.size === 0) {
+                  responseBody = `[EMPTY BLOB: ${blob.type || "unknown"}]`;
+                } else if (blob.size < 10000 && blob.type.startsWith("text/")) {
+                  responseBody = `[TEXT BLOB: ${blob.size} bytes]`;
+                } else if (blob.size < 10000) {
+                  responseBody = `[BLOB: ${blob.type || "unknown"}, ${
+                    blob.size
+                  } bytes]`;
+                } else {
+                  responseBody = `[BLOB: ${blob.type || "unknown"}, ${
+                    blob.size
+                  } bytes - too large]`;
+                }
+              } catch {
+                responseBody = "[BLOB DATA]";
+              }
+            } else {
+              responseBody = `[${this.responseType.toUpperCase()} DATA]`;
+            }
+          } catch {
+            try {
+              responseBody =
+                this.responseType === "" || this.responseType === "text"
+                  ? String(this.responseText || "")
+                  : `[${this.responseType.toUpperCase()} DATA]`;
             } catch {
-              responseBody = this.responseText;
+              responseBody = "[RESPONSE_UNAVAILABLE]";
             }
           }
+
+          const responseHeaders: Record<string, string> = {};
+          try {
+            const allHeaders = this.getAllResponseHeaders();
+            if (allHeaders) {
+              allHeaders.split("\r\n").forEach((line) => {
+                const parts = line.split(": ");
+                if (parts.length === 2 && parts[0] && parts[1]) {
+                  responseHeaders[parts[0]] = parts[1];
+                }
+              });
+            }
+          } catch {}
 
           updateRequest(loggerData.id, {
             status: this.status,
             response: responseBody,
+            responseHeaders: responseHeaders,
             endTime,
             duration,
           });
@@ -304,90 +287,12 @@ const createXHRInterceptor = () => {
   };
 };
 
-const createAxiosInterceptor = (axiosInstance: any) => {
-  if (!axiosInstance || !axiosInstance.interceptors) {
-    return;
-  }
-
-  axiosInstance.interceptors.request.use(
-    (config: any) => {
-      const requestId = generateId();
-      const startTime = Date.now();
-
-      const request: NetworkRequest = {
-        id: requestId,
-        method: config.method?.toUpperCase() || "GET",
-        url: config.url || "",
-        fullUrl: config.url,
-        headers: normalizeHeaders(config.headers),
-        body: config.data,
-        startTime,
-        timestamp: new Date(),
-        type: "axios",
-      };
-
-      addRequest(request);
-
-      return {
-        ...config,
-        _networkLoggerId: requestId,
-        _networkLoggerStartTime: startTime,
-      };
-    },
-    (error: any) => Promise.reject(error)
-  );
-
-  axiosInstance.interceptors.response.use(
-    (response: any) => {
-      const requestId = response.config?._networkLoggerId;
-      const startTime = response.config?._networkLoggerStartTime;
-
-      if (requestId && startTime) {
-        const endTime = Date.now();
-        const duration = endTime - startTime;
-
-        updateRequest(requestId, {
-          status: response.status,
-          response: response.data,
-          endTime,
-          duration,
-        });
-      }
-
-      return response;
-    },
-    (error: any) => {
-      const requestId = error.config?._networkLoggerId;
-      const startTime = error.config?._networkLoggerStartTime;
-
-      if (requestId && startTime) {
-        const endTime = Date.now();
-        const duration = endTime - startTime;
-
-        updateRequest(requestId, {
-          status: error.response?.status,
-          error: error.response?.data || error.message,
-          endTime,
-          duration,
-        });
-      }
-
-      return Promise.reject(error);
-    }
-  );
-};
-
 const startLogging = (): void => {
   if (networkLoggerState.isActive) return;
 
-  createFetchInterceptor();
   createXHRInterceptor();
 
   networkLoggerState.isActive = true;
-
-  if (networkLoggerState.config.enableConsoleLogs) {
-    console.log("🌐 HttpTrace: Native network interceptors started");
-  }
 };
 
 const stopLogging = (): void => {
@@ -405,11 +310,12 @@ const stopLogging = (): void => {
     XMLHttpRequest.prototype.send = networkLoggerState.originalXHRSend;
   }
 
-  networkLoggerState.isActive = false;
-
-  if (networkLoggerState.config.enableConsoleLogs) {
-    console.log("🌐 HttpTrace: Native network interceptors stopped");
+  if (networkLoggerState.originalXHRSetRequestHeader) {
+    XMLHttpRequest.prototype.setRequestHeader =
+      networkLoggerState.originalXHRSetRequestHeader;
   }
+
+  networkLoggerState.isActive = false;
 };
 
 const clearRequests = (): void => {
@@ -450,6 +356,4 @@ export const networkLogger = {
   clearRequests,
   subscribe,
   configure,
-  createAxiosInterceptor,
-  createAxiosInterceptors: createAxiosInterceptor,
 };

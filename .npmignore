@@ -1,5 +1,5 @@
-# Source files
-src/
+# Source files (included via package.json files field)
+# src/ is included for copy command
 tsconfig.json
 
 # Development files
