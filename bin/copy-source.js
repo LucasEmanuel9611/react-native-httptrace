@@ -61,17 +61,28 @@ function getRelativePath(targetPath, currentDir) {
   return relative.startsWith(".") ? relative : `./${relative}`;
 }
 
+function prepareTargetDirectory(targetPath, relativeTargetPath) {
+  if (!fs.existsSync(targetPath)) {
+    return { updated: false };
+  }
+
+  const stats = fs.statSync(targetPath);
+  if (!stats.isDirectory()) {
+    console.log(`❌ Já existe um arquivo em "${relativeTargetPath}".`);
+    console.log(`   Remova ou renomeie o arquivo antes de continuar.`);
+    process.exit(1);
+  }
+
+  console.log(`♻️ Diretório "${relativeTargetPath}" encontrado. Atualizando conteúdo...`);
+  fs.rmSync(targetPath, { recursive: true, force: true });
+  return { updated: true };
+}
+
 function main() {
   const { basePath } = parseArguments();
   const currentDir = process.cwd();
   const targetPath = path.join(basePath, TARGET_DIR);
   const relativeTargetPath = getRelativePath(targetPath, currentDir);
-
-  if (fs.existsSync(targetPath)) {
-    console.log(`❌ O diretório "${relativeTargetPath}" já existe.`);
-    console.log(`   Remova-o primeiro se deseja copiar novamente.`);
-    process.exit(1);
-  }
 
   if (!fs.existsSync(SOURCE_DIR)) {
     console.log(`❌ Diretório fonte não encontrado: ${SOURCE_DIR}`);
@@ -84,6 +95,7 @@ function main() {
   console.log(`📦 Copiando código-fonte para "${relativeTargetPath}"...`);
 
   try {
+    const { updated } = prepareTargetDirectory(targetPath, relativeTargetPath);
     copyDirectory(SOURCE_DIR, targetPath);
 
     const importBasePath = relativeTargetPath.replace(/\\/g, "/");
@@ -122,7 +134,9 @@ npm uninstall react-native-httptrace
 
     fs.writeFileSync(readmePath, readmeContent, "utf8");
 
-    console.log(`✅ Código copiado com sucesso para "${relativeTargetPath}"!`);
+    console.log(
+      `✅ Código ${updated ? "atualizado" : "copiado"} com sucesso em "${relativeTargetPath}"!`
+    );
     console.log(`\n📝 Próximos passos:`);
     console.log(
       `   1. Atualize suas importações para usar os arquivos locais:`
