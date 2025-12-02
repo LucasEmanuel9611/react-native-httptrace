@@ -81,7 +81,10 @@ function prepareTargetDirectory(targetPath, relativeTargetPath) {
 function main() {
   const { basePath } = parseArguments();
   const currentDir = process.cwd();
-  const targetPath = path.join(basePath, TARGET_DIR);
+  const basePathName = path.basename(basePath);
+  const targetPath = basePathName === TARGET_DIR 
+    ? basePath 
+    : path.join(basePath, TARGET_DIR);
   const relativeTargetPath = getRelativePath(targetPath, currentDir);
 
   if (!fs.existsSync(SOURCE_DIR)) {
