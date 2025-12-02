@@ -197,7 +197,11 @@ export function HttpTraceModal({
         </TouchableOpacity>
         {isExpanded && (
           <View style={styles.sectionContent}>
-            <ScrollView style={styles.contentScroll}>
+            <ScrollView
+              style={styles.contentScroll}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}
+            >
               <Text style={styles.detailText}>
                 {typeof content === "string"
                   ? content
@@ -319,7 +323,11 @@ export function HttpTraceModal({
               </View>
             </TouchableOpacity>
             <View style={styles.sectionContent}>
-              <ScrollView style={styles.contentScroll}>
+              <ScrollView
+                style={styles.contentScroll}
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+              >
                 <Text style={styles.detailText}>
                   {generateCurl(selectedRequest)}
                 </Text>

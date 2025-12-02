@@ -106,10 +106,10 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   url: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     fontFamily: Theme.typography.fontFamily.medium,
     color: Theme.colors.neutralVeryDark,
-    marginBottom: spacing.quarck,
+    marginBottom: spacing.xs,
   },
   timestamp: {
     fontSize: fontSize.xs,
@@ -120,9 +120,9 @@ export const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   status: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     fontFamily: Theme.typography.fontFamily.bold,
-    marginBottom: 2,
+    marginBottom: spacing.quarck,
   },
   duration: {
     fontSize: fontSize.xs,
@@ -162,10 +162,12 @@ export const styles = StyleSheet.create({
     borderBottomColor: Theme.colors.neutralMedium,
   },
   detailTitle: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.lg,
     fontFamily: Theme.typography.fontFamily.bold,
     color: Theme.colors.neutralVeryDark,
     flex: 1,
+    marginLeft: spacing.xs,
+    marginRight: spacing.xs,
   },
   closeButton: {
     fontSize: fontSize.lg,
@@ -191,7 +193,7 @@ export const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   sectionTitle: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.lg,
     fontFamily: Theme.typography.fontFamily.bold,
     color: Theme.colors.neutralVeryDark,
   },
@@ -210,10 +212,10 @@ export const styles = StyleSheet.create({
     borderBottomRightRadius: borderRadius.md,
   },
   contentScroll: {
-    maxHeight: 200,
+    maxHeight: 300,
   },
   detailText: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     color: Theme.colors.neutralVeryDark,
     fontFamily: "monospace",
   },
@@ -232,17 +234,18 @@ export const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: "row",
-    paddingTop: spacing.quarck,
-    paddingBottom: spacing.quarck,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
+    marginBottom: spacing.quarck,
   },
   infoLabel: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     fontFamily: Theme.typography.fontFamily.bold,
     color: Theme.colors.neutralDark,
     width: 80,
   },
   infoValue: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     color: Theme.colors.neutralVeryDark,
     flex: 1,
     fontFamily: Theme.typography.fontFamily.regular,
