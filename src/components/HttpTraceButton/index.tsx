@@ -10,6 +10,7 @@ import {
   Dimensions,
   PanResponder,
   Text,
+  View,
 } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -18,6 +19,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { networkLogger, NetworkRequest } from "../../services/network-logger";
 import { HttpTraceModal } from "../HttpTraceModal";
 import { styles } from "./styles";
 
@@ -31,7 +33,23 @@ const HIDE_DURATION = 10000;
 
 export function HttpTraceButton({ visible = true }: HttpTraceButtonProps) {
   const [modalVisible, setModalVisible] = useState(false);
+  const [requestCount, setRequestCount] = useState(0);
+  const [errorCount, setErrorCount] = useState(0);
   const hideTimeoutRef = useRef<NodeJS.Timeout>();
+
+  useEffect(() => {
+    return networkLogger.subscribe((requests: NetworkRequest[]) => {
+      setRequestCount(requests.length);
+      const errors = requests.filter(
+        (r) => !r.status || r.status === 0 || r.status >= 400
+      ).length;
+      setErrorCount(errors);
+    });
+  }, []);
+
+  const hasErrors = errorCount > 0;
+  const badgeLabel = hasErrors ? String(errorCount) : String(requestCount);
+  const showBadge = requestCount > 0;
 
   const translateX = useSharedValue(screenWidth - BUTTON_SIZE - 20);
   const translateY = useSharedValue(screenHeight - BUTTON_SIZE - 100);
@@ -148,6 +166,16 @@ export function HttpTraceButton({ visible = true }: HttpTraceButtonProps) {
         {...panResponder.panHandlers}
       >
         <Text style={styles.buttonText}>🌐</Text>
+        {showBadge && (
+          <View
+            style={[
+              styles.badge,
+              hasErrors ? styles.badgeError : styles.badgeDefault,
+            ]}
+          >
+            <Text style={styles.badgeText}>{badgeLabel}</Text>
+          </View>
+        )}
       </Animated.View>
 
       <HttpTraceModal

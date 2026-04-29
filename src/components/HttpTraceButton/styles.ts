@@ -22,4 +22,26 @@ export const styles = StyleSheet.create({
     fontSize: 24,
     color: "#fff",
   },
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  badgeDefault: {
+    backgroundColor: "#4CAF50",
+  },
+  badgeError: {
+    backgroundColor: "#F44336",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "bold",
+  },
 });

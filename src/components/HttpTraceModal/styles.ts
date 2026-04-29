@@ -1,9 +1,9 @@
-import { StyleSheet } from "react-native";
-import { Theme } from "../../theme";
+import { StyleSheet } from 'react-native';
+import { Theme } from '../../theme';
 
 const parseSpacing = (spacing: string) =>
-  parseInt(spacing.replace("px", ""), 10);
-const parseFontSize = (size: string) => parseInt(size.replace("px", ""), 10);
+  parseInt(spacing.replace('px', ''), 10);
+const parseFontSize = (size: string) => parseInt(size.replace('px', ''), 10);
 
 const spacing = {
   nano: parseSpacing(Theme.spacing.nano),
@@ -31,14 +31,38 @@ const borderWidth = {
 };
 
 export const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
+  },
   container: {
     flex: 1,
+    marginTop: 40,
     backgroundColor: Theme.colors.neutralLight,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
+  },
+  dragHandleContainer: {
+    alignItems: 'center',
+    paddingTop: spacing.quarck,
+    paddingBottom: spacing.nano,
+    backgroundColor: Theme.colors.neutralVeryLight,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Theme.colors.neutralMedium,
+  },
+  headerSpacer: {
+    flex: 1,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingLeft: spacing.sm16,
     paddingRight: spacing.sm16,
     paddingTop: spacing.xs,
@@ -51,16 +75,28 @@ export const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: Theme.colors.auxiliary05Default,
     fontFamily: Theme.typography.fontFamily.medium,
+    fontWeight: Theme.typography.fontWeight.medium,
+  },
+  backButtonIcon: {
+    fontSize: 24,
+  },
+  backButtonLabel: {
+    fontSize: fontSize.lg,
+    color: Theme.colors.auxiliary05Default,
+    fontFamily: Theme.typography.fontFamily.medium,
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   title: {
     fontSize: fontSize.lg,
     fontFamily: Theme.typography.fontFamily.bold,
+    fontWeight: Theme.typography.fontWeight.bold,
     color: Theme.colors.neutralVeryDark,
   },
   clearButton: {
     fontSize: fontSize.md,
     color: Theme.colors.errorMedium,
     fontFamily: Theme.typography.fontFamily.medium,
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   content: {
     flex: 1,
@@ -73,19 +109,16 @@ export const styles = StyleSheet.create({
     marginBottom: spacing.quarck,
     borderRadius: borderRadius.md,
     padding: spacing.xs,
-    shadowColor: Theme.colors.neutralVeryDark,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: borderWidth.hairLine,
+    borderColor: Theme.colors.neutralMedium,
   },
   requestItemSelected: {
     borderColor: Theme.colors.secondary.pure,
     borderWidth: borderWidth.thin,
   },
   requestHeader: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   methodContainer: {
     marginRight: spacing.xs,
@@ -93,6 +126,7 @@ export const styles = StyleSheet.create({
   method: {
     fontSize: fontSize.xs,
     fontFamily: Theme.typography.fontFamily.bold,
+    fontWeight: Theme.typography.fontWeight.bold,
     color: Theme.colors.neutralVeryLight,
     paddingLeft: spacing.nano,
     paddingRight: spacing.nano,
@@ -100,7 +134,7 @@ export const styles = StyleSheet.create({
     paddingBottom: spacing.quarck,
     borderRadius: borderRadius.sm,
     minWidth: 50,
-    textAlign: "center",
+    textAlign: 'center',
   },
   requestInfo: {
     flex: 1,
@@ -108,6 +142,7 @@ export const styles = StyleSheet.create({
   url: {
     fontSize: fontSize.md,
     fontFamily: Theme.typography.fontFamily.medium,
+    fontWeight: Theme.typography.fontWeight.medium,
     color: Theme.colors.neutralVeryDark,
     marginBottom: spacing.xs,
   },
@@ -117,11 +152,12 @@ export const styles = StyleSheet.create({
     fontFamily: Theme.typography.fontFamily.regular,
   },
   statusContainer: {
-    alignItems: "flex-end",
+    alignItems: 'flex-end',
   },
   status: {
     fontSize: fontSize.md,
     fontFamily: Theme.typography.fontFamily.bold,
+    fontWeight: Theme.typography.fontWeight.bold,
     marginBottom: spacing.quarck,
   },
   duration: {
@@ -131,22 +167,23 @@ export const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingLeft: spacing.lg,
     paddingRight: spacing.lg,
   },
   emptyText: {
     fontSize: fontSize.lg,
     fontFamily: Theme.typography.fontFamily.bold,
+    fontWeight: Theme.typography.fontWeight.bold,
     color: Theme.colors.neutralDark,
-    textAlign: "center",
+    textAlign: 'center',
     marginBottom: spacing.nano,
   },
   emptySubtext: {
     fontSize: fontSize.sm,
     color: Theme.colors.neutralMedium,
-    textAlign: "center",
+    textAlign: 'center',
     fontFamily: Theme.typography.fontFamily.regular,
   },
   detailContainer: {
@@ -154,9 +191,9 @@ export const styles = StyleSheet.create({
     backgroundColor: Theme.colors.neutralVeryLight,
   },
   detailHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     padding: spacing.sm16,
     borderBottomWidth: borderWidth.hairLine,
     borderBottomColor: Theme.colors.neutralMedium,
@@ -164,6 +201,7 @@ export const styles = StyleSheet.create({
   detailTitle: {
     fontSize: fontSize.lg,
     fontFamily: Theme.typography.fontFamily.bold,
+    fontWeight: Theme.typography.fontWeight.bold,
     color: Theme.colors.neutralVeryDark,
     flex: 1,
     marginLeft: spacing.xs,
@@ -173,6 +211,7 @@ export const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     color: Theme.colors.auxiliary05Default,
     fontFamily: Theme.typography.fontFamily.medium,
+    fontWeight: Theme.typography.fontWeight.medium,
   },
   detailContent: {
     flex: 1,
@@ -182,9 +221,9 @@ export const styles = StyleSheet.create({
     marginBottom: spacing.sm16,
   },
   sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: spacing.xs,
     paddingBottom: spacing.xs,
     paddingLeft: spacing.sm16,
@@ -195,6 +234,7 @@ export const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: fontSize.lg,
     fontFamily: Theme.typography.fontFamily.bold,
+    fontWeight: Theme.typography.fontWeight.bold,
     color: Theme.colors.neutralVeryDark,
   },
   expandIcon: {
@@ -217,11 +257,11 @@ export const styles = StyleSheet.create({
   detailText: {
     fontSize: fontSize.md,
     color: Theme.colors.neutralVeryDark,
-    fontFamily: "monospace",
+    fontFamily: 'monospace',
   },
   copyButton: {
-    alignItems: "center",
-    justifyContent: "flex-end",
+    alignItems: 'center',
+    justifyContent: 'flex-end',
     marginTop: spacing.nano,
     padding: spacing.nano,
     backgroundColor: Theme.colors.secondary.pure,
@@ -231,9 +271,10 @@ export const styles = StyleSheet.create({
     color: Theme.colors.neutralVeryLight,
     fontSize: fontSize.sm,
     fontFamily: Theme.typography.fontFamily.bold,
+    fontWeight: Theme.typography.fontWeight.bold,
   },
   infoRow: {
-    flexDirection: "row",
+    flexDirection: 'row',
     paddingTop: spacing.xs,
     paddingBottom: spacing.xs,
     marginBottom: spacing.quarck,
@@ -241,6 +282,7 @@ export const styles = StyleSheet.create({
   infoLabel: {
     fontSize: fontSize.md,
     fontFamily: Theme.typography.fontFamily.bold,
+    fontWeight: Theme.typography.fontWeight.bold,
     color: Theme.colors.neutralDark,
     width: 80,
   },
@@ -249,6 +291,135 @@ export const styles = StyleSheet.create({
     color: Theme.colors.neutralVeryDark,
     flex: 1,
     fontFamily: Theme.typography.fontFamily.regular,
+  },
+  searchFilterContainer: {
+    backgroundColor: Theme.colors.neutralVeryLight,
+    paddingHorizontal: spacing.sm16,
+    paddingTop: spacing.quarck,
+    paddingBottom: spacing.xs,
+    borderBottomWidth: borderWidth.hairLine,
+    borderBottomColor: Theme.colors.neutralMedium,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.quarck,
+  },
+  searchInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.neutralLight,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.xs,
+    height: 40,
+  },
+  searchIcon: {
+    fontSize: fontSize.md,
+    marginRight: spacing.quarck,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    fontFamily: Theme.typography.fontFamily.regular,
+    color: Theme.colors.neutralVeryDark,
+    padding: 0,
+  },
+  filterButtonsRow: {
+    flexDirection: 'row',
+    marginTop: spacing.quarck,
+    gap: spacing.quarck,
+  },
+  filterButton: {
+    paddingHorizontal: spacing.sm16,
+    paddingVertical: spacing.nano,
+    borderRadius: borderRadius.md,
+    borderWidth: borderWidth.thin,
+    borderColor: Theme.colors.neutralMedium,
+    backgroundColor: Theme.colors.neutralVeryLight,
+  },
+  filterButtonActive: {
+    backgroundColor: Theme.colors.secondary.pure,
+    borderColor: Theme.colors.secondary.pure,
+  },
+  filterButtonLabel: {
+    fontSize: fontSize.sm,
+    fontFamily: Theme.typography.fontFamily.medium,
+    fontWeight: Theme.typography.fontWeight.medium,
+    color: Theme.colors.neutralDark,
+  },
+  filterButtonLabelActive: {
+    color: Theme.colors.neutralVeryLight,
+  },
+  filterButtonStatusSuccess: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  filterButtonStatusWarning: {
+    backgroundColor: '#FF9800',
+    borderColor: '#FF9800',
+  },
+  filterButtonStatusError: {
+    backgroundColor: '#F44336',
+    borderColor: '#F44336',
+  },
+  filterToggleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    backgroundColor: Theme.colors.neutralLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterToggleButtonActive: {
+    backgroundColor: Theme.colors.secondary.pure,
+  },
+  filterToggleIcon: {
+    fontSize: fontSize.lg,
+    color: Theme.colors.neutralDark,
+  },
+  filterToggleIconActive: {
+    color: Theme.colors.neutralVeryLight,
+  },
+  activeBadgesRow: {
+    flexDirection: 'row',
+    marginTop: spacing.quarck,
+    gap: spacing.quarck,
+    flexWrap: 'wrap',
+    overflow: 'hidden',
+  },
+  activeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.secondary.pure,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.nano,
+    gap: spacing.nano,
+  },
+  activeBadgeLabel: {
+    fontSize: fontSize.sm,
+    fontFamily: Theme.typography.fontFamily.medium,
+    fontWeight: Theme.typography.fontWeight.medium,
+    color: Theme.colors.neutralVeryLight,
+  },
+  activeBadgeRemove: {
+    fontSize: fontSize.xs,
+    color: Theme.colors.neutralVeryLight,
+    fontFamily: Theme.typography.fontFamily.bold,
+    fontWeight: Theme.typography.fontWeight.bold,
+  },
+  filterPanel: {
+    overflow: 'hidden',
+  },
+  filterPanelSectionTitle: {
+    fontSize: fontSize.xs,
+    fontFamily: Theme.typography.fontFamily.bold,
+    fontWeight: Theme.typography.fontWeight.bold,
+    color: Theme.colors.neutralDark,
+    marginTop: spacing.quarck,
+    marginBottom: spacing.nano,
+    textTransform: 'uppercase',
   },
 });
 

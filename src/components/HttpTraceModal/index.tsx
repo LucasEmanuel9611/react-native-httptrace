@@ -1,32 +1,25 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef } from 'react';
 import {
-  Alert,
+  Animated,
   FlatList,
   Modal,
-  SafeAreaView,
+  PanResponder,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-} from "react-native";
+} from 'react-native';
 
-import { shareText } from "../../helpers/share";
-import { networkLogger, NetworkRequest } from "../../services/network-logger";
+import { NetworkRequest } from '../../services/network-logger';
 import {
   getMethodStyle,
   getRequestItemStyle,
   getStatusStyle,
   styles,
-} from "./styles";
-
-interface ExpandedSections {
-  [key: string]: {
-    headers: boolean;
-    body: boolean;
-    response: boolean;
-    error: boolean;
-  };
-}
+} from './styles';
+import { JsonHighlight } from './JsonHighlight';
+import { ExpandableSectionKey, useHttpTraceModal } from './useHttpTraceModal';
 
 interface HttpTraceModalProps {
   visible: boolean;
@@ -38,118 +31,117 @@ interface HttpTraceModalProps {
 export function HttpTraceModal({
   visible,
   onClose,
-  title = "HTTP Trace",
+  title = '🌐 HTTP Trace',
   showCloseButton = true,
 }: HttpTraceModalProps) {
-  const [requests, setRequests] = useState<NetworkRequest[]>([]);
-  const [selectedRequest, setSelectedRequest] = useState<NetworkRequest | null>(
-    null
-  );
-  const [expandedSections, setExpandedSections] = useState<ExpandedSections>(
-    {}
-  );
+  const {
+    filteredRequests,
+    selectedRequest,
+    searchQuery,
+    activeTypeFilter,
+    activeStatusFilter,
+    isFilterPanelVisible,
+    activeFilterBadges,
+    hasActiveFilters,
+    setSearchQuery,
+    selectRequest,
+    clearRequests,
+    toggleSection,
+    getExpandedState,
+    handleShare,
+    toggleTypeFilter,
+    toggleStatusFilter,
+    toggleFilterPanel,
+    extractPathFromUrl,
+    getStatusColor,
+    formatDuration,
+    getDurationColor,
+    generateCurl,
+  } = useHttpTraceModal();
+
+  const dismissThreshold = 150;
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          translateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > dismissThreshold) {
+          Animated.timing(translateY, {
+            toValue: 800,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => {
+            translateY.setValue(0);
+            onClose();
+          });
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 8,
+          }).start();
+        }
+      },
+    }),
+  ).current;
+
+  const filterPanelHeight = useRef(new Animated.Value(0)).current;
+  const filterPanelOpacity = useRef(new Animated.Value(0)).current;
+  const badgesRowHeight = useRef(new Animated.Value(0)).current;
+  const badgesRowOpacity = useRef(new Animated.Value(0)).current;
+  const displayedBadgesRef = useRef(activeFilterBadges);
+
+  const hasBadges = activeFilterBadges.length > 0;
+
+  if (hasBadges) {
+    displayedBadgesRef.current = activeFilterBadges;
+  }
 
   useEffect(() => {
-    return networkLogger.subscribe(setRequests);
-  }, []);
+    Animated.parallel([
+      Animated.timing(filterPanelHeight, {
+        toValue: isFilterPanelVisible ? 200 : 0,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+      Animated.timing(filterPanelOpacity, {
+        toValue: isFilterPanelVisible ? 1 : 0,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [isFilterPanelVisible, filterPanelHeight, filterPanelOpacity]);
 
   useEffect(() => {
-    if (selectedRequest && !expandedSections[selectedRequest.id]) {
-      const newExpandedSections = { ...expandedSections };
-      newExpandedSections[selectedRequest.id] = {
-        headers: false,
-        body: false,
-        response: false,
-        error: false,
-      };
-      setExpandedSections(newExpandedSections);
-    }
-  }, [selectedRequest, expandedSections]);
-
-  const clearRequests = () => {
-    Alert.alert(
-      "Limpar Logs",
-      "Tem certeza que deseja limpar todos os logs de rede?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Limpar",
-          style: "destructive",
-          onPress: () => {
-            networkLogger.clearRequests();
-            setExpandedSections({});
-          },
-        },
-      ]
-    );
-  };
-
-  const getStatusColor = (status?: number) => {
-    if (!status) return "#999";
-    if (status >= 200 && status < 300) return "#4CAF50";
-    if (status >= 400 && status < 500) return "#FF9800";
-    if (status >= 500) return "#F44336";
-    return "#999";
-  };
-
-  const formatDuration = (duration?: number) => {
-    if (!duration) return "N/A";
-    return `${duration}ms`;
-  };
-
-  const toggleSection = (
-    section: "headers" | "body" | "response" | "error"
-  ) => {
-    if (!selectedRequest) return;
-
-    const newExpandedSections = { ...expandedSections };
-    const currentState = newExpandedSections[selectedRequest.id] || {
-      headers: false,
-      body: false,
-      response: false,
-      error: false,
-    };
-
-    newExpandedSections[selectedRequest.id] = {
-      ...currentState,
-      [section]: !currentState[section],
-    };
-    setExpandedSections(newExpandedSections);
-  };
-
-  const getExpandedState = (requestId: string) => {
-    return (
-      expandedSections[requestId] || {
-        headers: false,
-        body: false,
-        response: false,
-        error: false,
+    Animated.parallel([
+      Animated.timing(badgesRowHeight, {
+        toValue: hasBadges ? 40 : 0,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+      Animated.timing(badgesRowOpacity, {
+        toValue: hasBadges ? 1 : 0,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      if (!hasBadges) {
+        displayedBadgesRef.current = [];
       }
-    );
-  };
-
-  const handleShare = (text: string, title: string) => {
-    shareText(text, title).catch(() => {});
-  };
-
-  const generateCurl = (request: NetworkRequest) => {
-    let curl = `curl -X ${request.method} "${request.url}"`;
-
-    if (request.headers) {
-      Object.entries(request.headers).forEach(([key, value]) => {
-        curl += ` \\\n  -H "${key}: ${value}"`;
-      });
-    }
-
-    if (request.body && typeof request.body === "string") {
-      curl += ` \\\n  -d '${request.body}'`;
-    }
-
-    return curl;
-  };
+    });
+  }, [hasBadges, badgesRowHeight, badgesRowOpacity]);
 
   const renderRequest = ({ item }: { item: NetworkRequest }) => (
-    <TouchableOpacity onPress={() => setSelectedRequest(item)}>
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={() => selectRequest(item)}>
       <View style={getRequestItemStyle(selectedRequest?.id === item.id)}>
         <View style={styles.requestHeader}>
           <View style={styles.methodContainer}>
@@ -159,7 +151,7 @@ export function HttpTraceModal({
           </View>
           <View style={styles.requestInfo}>
             <Text style={styles.url} numberOfLines={1}>
-              {item.url}
+              {extractPathFromUrl(item.url)}
             </Text>
             <Text style={styles.timestamp}>
               {new Date(item.timestamp).toLocaleTimeString()}
@@ -167,9 +159,15 @@ export function HttpTraceModal({
           </View>
           <View style={styles.statusContainer}>
             <Text style={getStatusStyle(getStatusColor(item.status))}>
-              {item.status || "PENDING"}
+              {item.status || 'PENDING'}
             </Text>
-            <Text style={styles.duration}>{formatDuration(item.duration)}</Text>
+            <Text
+              style={[
+                styles.duration,
+                { color: getDurationColor(item.duration) },
+              ]}>
+              {formatDuration(item.duration)}
+            </Text>
           </View>
         </View>
       </View>
@@ -177,10 +175,10 @@ export function HttpTraceModal({
   );
 
   const renderSection = (
-    title: string,
+    sectionTitle: string,
     content: any,
-    sectionKey: "headers" | "body" | "response" | "error",
-    copyLabel: string
+    sectionKey: ExpandableSectionKey,
+    copyLabel: string,
   ) => {
     if (!selectedRequest || !content) return null;
 
@@ -191,33 +189,27 @@ export function HttpTraceModal({
       <View style={styles.section}>
         <TouchableOpacity onPress={() => toggleSection(sectionKey)}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{title}</Text>
-            <Text style={styles.expandIcon}>{isExpanded ? "▼" : "▶"}</Text>
+            <Text style={styles.sectionTitle}>{sectionTitle}</Text>
+            <Text style={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</Text>
           </View>
         </TouchableOpacity>
         {isExpanded && (
           <View style={styles.sectionContent}>
             <ScrollView
               style={styles.contentScroll}
-              nestedScrollEnabled={true}
-              showsVerticalScrollIndicator={true}
-            >
-              <Text style={styles.detailText}>
-                {typeof content === "string"
-                  ? content
-                  : JSON.stringify(content, null, 2)}
-              </Text>
+              nestedScrollEnabled
+              showsVerticalScrollIndicator>
+              <JsonHighlight content={content} />
             </ScrollView>
             <TouchableOpacity
               onPress={() =>
                 handleShare(
-                  typeof content === "string"
+                  typeof content === 'string'
                     ? content
                     : JSON.stringify(content, null, 2),
-                  copyLabel
+                  copyLabel,
                 )
-              }
-            >
+              }>
               <View style={styles.copyButton}>
                 <Text style={styles.copyButtonText}>Copy</Text>
               </View>
@@ -236,18 +228,13 @@ export function HttpTraceModal({
         <View style={styles.detailHeader}>
           <TouchableOpacity
             onPress={() =>
-              handleShare(generateCurl(selectedRequest), "cURL Command")
-            }
-          >
+              handleShare(generateCurl(selectedRequest), 'cURL Command')
+            }>
             <Text style={styles.closeButton}>📤</Text>
           </TouchableOpacity>
           <Text style={styles.detailTitle}>
             {selectedRequest.method} {selectedRequest.url}
           </Text>
-
-          <TouchableOpacity onPress={() => setSelectedRequest(null)}>
-            <Text style={styles.closeButton}>X</Text>
-          </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.detailContent}>
@@ -256,8 +243,7 @@ export function HttpTraceModal({
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>URL:</Text>
               <TouchableOpacity
-                onPress={() => handleShare(selectedRequest.url, "URL")}
-              >
+                onPress={() => handleShare(selectedRequest.url, 'URL')}>
                 <Text style={styles.infoValue}>{selectedRequest.url}</Text>
               </TouchableOpacity>
             </View>
@@ -271,9 +257,8 @@ export function HttpTraceModal({
                 style={[
                   styles.infoValue,
                   { color: getStatusColor(selectedRequest.status) },
-                ]}
-              >
-                {selectedRequest.status || "Pending"}
+                ]}>
+                {selectedRequest.status || 'Pending'}
               </Text>
             </View>
             <View style={styles.infoRow}>
@@ -291,32 +276,33 @@ export function HttpTraceModal({
           </View>
 
           {renderSection(
-            "Request Headers",
+            'Request Headers',
             selectedRequest.headers,
-            "headers",
-            "Request Headers"
+            'headers',
+            'Request Headers',
           )}
 
           {renderSection(
-            "Request Body",
+            'Request Body',
             selectedRequest.body,
-            "body",
-            "Request Body"
+            'body',
+            'Request Body',
           )}
 
           {renderSection(
-            "Response",
+            'Response',
             selectedRequest.response,
-            "response",
-            "Response Data"
+            'response',
+            'Response Data',
           )}
 
-          {renderSection("Error", selectedRequest.error, "error", "Error")}
+          {renderSection('Error', selectedRequest.error, 'error', 'Error')}
 
           <View style={styles.section}>
             <TouchableOpacity
-              onPress={() => handleShare(generateCurl(selectedRequest), "cURL")}
-            >
+              onPress={() =>
+                handleShare(generateCurl(selectedRequest), 'cURL')
+              }>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>cURL Command</Text>
                 <Text style={styles.copyButtonText}>Copy</Text>
@@ -325,9 +311,8 @@ export function HttpTraceModal({
             <View style={styles.sectionContent}>
               <ScrollView
                 style={styles.contentScroll}
-                nestedScrollEnabled={true}
-                showsVerticalScrollIndicator={true}
-              >
+                nestedScrollEnabled
+                showsVerticalScrollIndicator>
                 <Text style={styles.detailText}>
                   {generateCurl(selectedRequest)}
                 </Text>
@@ -343,29 +328,212 @@ export function HttpTraceModal({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={{ flex: 1 }}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            {showCloseButton && (
-              <TouchableOpacity onPress={onClose}>
-                <Text style={styles.backButton}>X Fechar</Text>
-              </TouchableOpacity>
-            )}
-            <Text style={styles.title}>{title}</Text>
-            <TouchableOpacity onPress={clearRequests}>
-              <Text style={styles.clearButton}>Limpar</Text>
-            </TouchableOpacity>
+      transparent
+      onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <Animated.View
+          style={[styles.container, { transform: [{ translateY }] }]}>
+          <View
+            style={styles.dragHandleContainer}
+            {...panResponder.panHandlers}>
+            <View style={styles.dragHandle} />
           </View>
+          <View style={styles.header}>
+            {selectedRequest ? (
+              <>
+                <TouchableOpacity onPress={() => selectRequest(null)}>
+                  <Text style={styles.backButtonLabel}>
+                    <Text style={styles.backButtonIcon}>{'‹ '}</Text>
+                    Voltar
+                  </Text>
+                </TouchableOpacity>
+                <View style={styles.headerSpacer} />
+              </>
+            ) : (
+              <>
+                {showCloseButton && (
+                  <TouchableOpacity onPress={onClose}>
+                    <Text style={styles.backButton}>✕ Fechar</Text>
+                  </TouchableOpacity>
+                )}
+                <Text style={styles.title}>{title}</Text>
+                <TouchableOpacity onPress={clearRequests}>
+                  <Text style={styles.clearButton}>Limpar</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
+          {!selectedRequest && (
+            <View style={styles.searchFilterContainer}>
+              <View style={styles.searchRow}>
+                <View style={styles.searchInputWrapper}>
+                  <Text style={styles.searchIcon}>🔍</Text>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Buscar por URL ou método..."
+                    placeholderTextColor="#999"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    clearButtonMode="while-editing"
+                  />
+                </View>
+                <TouchableOpacity
+                  onPress={toggleFilterPanel}
+                  style={[
+                    styles.filterToggleButton,
+                    hasActiveFilters && styles.filterToggleButtonActive,
+                  ]}>
+                  <Text
+                    style={[
+                      styles.filterToggleIcon,
+                      hasActiveFilters && styles.filterToggleIconActive,
+                    ]}>
+                    ⚙
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <Animated.View
+                style={[
+                  styles.activeBadgesRow,
+                  {
+                    maxHeight: badgesRowHeight,
+                    opacity: badgesRowOpacity,
+                  },
+                ]}>
+                {(hasBadges ? activeFilterBadges : displayedBadgesRef.current).map(badge => (
+                  <TouchableOpacity
+                    key={badge.label}
+                    onPress={badge.onRemove}
+                    style={styles.activeBadge}>
+                    <Text style={styles.activeBadgeLabel}>{badge.label}</Text>
+                    <Text style={styles.activeBadgeRemove}>✕</Text>
+                  </TouchableOpacity>
+                ))}
+              </Animated.View>
+
+              <Animated.View
+                style={[
+                  styles.filterPanel,
+                  {
+                    maxHeight: filterPanelHeight,
+                    opacity: filterPanelOpacity,
+                  },
+                ]}>
+                  <Text style={styles.filterPanelSectionTitle}>Tipo</Text>
+                  <View style={styles.filterButtonsRow}>
+                    <TouchableOpacity
+                      onPress={() => toggleTypeFilter('xhr')}
+                      style={[
+                        styles.filterButton,
+                        activeTypeFilter === 'xhr' && styles.filterButtonActive,
+                      ]}>
+                      <Text
+                        style={[
+                          styles.filterButtonLabel,
+                          activeTypeFilter === 'xhr' &&
+                            styles.filterButtonLabelActive,
+                        ]}>
+                        XHR
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => toggleTypeFilter('fetch')}
+                      style={[
+                        styles.filterButton,
+                        activeTypeFilter === 'fetch' &&
+                          styles.filterButtonActive,
+                      ]}>
+                      <Text
+                        style={[
+                          styles.filterButtonLabel,
+                          activeTypeFilter === 'fetch' &&
+                            styles.filterButtonLabelActive,
+                        ]}>
+                        Fetch
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.filterPanelSectionTitle}>Status</Text>
+                  <View style={styles.filterButtonsRow}>
+                    <TouchableOpacity
+                      onPress={() => toggleStatusFilter('2xx')}
+                      style={[
+                        styles.filterButton,
+                        activeStatusFilter === '2xx' &&
+                          styles.filterButtonStatusSuccess,
+                      ]}>
+                      <Text
+                        style={[
+                          styles.filterButtonLabel,
+                          activeStatusFilter === '2xx' &&
+                            styles.filterButtonLabelActive,
+                        ]}>
+                        2xx
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => toggleStatusFilter('4xx')}
+                      style={[
+                        styles.filterButton,
+                        activeStatusFilter === '4xx' &&
+                          styles.filterButtonStatusWarning,
+                      ]}>
+                      <Text
+                        style={[
+                          styles.filterButtonLabel,
+                          activeStatusFilter === '4xx' &&
+                            styles.filterButtonLabelActive,
+                        ]}>
+                        4xx
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => toggleStatusFilter('5xx')}
+                      style={[
+                        styles.filterButton,
+                        activeStatusFilter === '5xx' &&
+                          styles.filterButtonStatusError,
+                      ]}>
+                      <Text
+                        style={[
+                          styles.filterButtonLabel,
+                          activeStatusFilter === '5xx' &&
+                            styles.filterButtonLabelActive,
+                        ]}>
+                        5xx
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => toggleStatusFilter('error')}
+                      style={[
+                        styles.filterButton,
+                        activeStatusFilter === 'error' &&
+                          styles.filterButtonStatusError,
+                      ]}>
+                      <Text
+                        style={[
+                          styles.filterButtonLabel,
+                          activeStatusFilter === 'error' &&
+                            styles.filterButtonLabelActive,
+                        ]}>
+                        Errors
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+              </Animated.View>
+            </View>
+          )}
 
           <View style={styles.content}>
             {selectedRequest ? (
               renderRequestDetail()
             ) : (
               <FlatList
-                data={requests}
+                data={filteredRequests}
                 renderItem={renderRequest}
                 keyExtractor={(item: NetworkRequest) => item.id}
                 showsVerticalScrollIndicator={false}
@@ -382,8 +550,8 @@ export function HttpTraceModal({
               />
             )}
           </View>
-        </View>
-      </SafeAreaView>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }

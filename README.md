@@ -1,20 +1,21 @@
 # react-native-httptrace
 
-Uma biblioteca completa para capturar e exibir **TODAS** as requisições HTTP (fetch, XMLHttpRequest, axios) em tempo real em aplicações React Native.
+Biblioteca leve para capturar e inspecionar requisições HTTP em tempo real em aplicações React Native.
 
 ## 🚀 Características
 
-- ✅ **Captura UNIVERSAL** - fetch, XMLHttpRequest, axios - sem dependências
-- ✅ **Interceptors nativos** - funciona com qualquer biblioteca HTTP
-- ✅ **Múltiplas interfaces** - botão, shake, toast, badge, status indicator
-- ✅ **Modal integrado** - todos os componentes incluem o modal
-- ✅ **Detalhes completos** - headers, body, response, error, cURL
-- ✅ **Clipboard nativo** - cópia real para área de transferência
-- ✅ **Interface moderna** - StyleSheet nativo sem dependências
-- ✅ **TypeScript** com tipagem completa
-- ✅ **Compatibilidade total** - código axios existente funciona igual
-- ✅ **Configurável** - controle total sobre comportamento
-- ✅ **Código local** - comando para copiar código-fonte e usar sem dependência npm
+- ✅ **Interceptação universal** — `fetch` e `XMLHttpRequest` (axios funciona automaticamente via XHR)
+- 🔍 **Busca e filtros** — busca por URL/método, filtros por tipo (XHR/Fetch) e status (2xx, 4xx, 5xx, errors)
+- 📋 **Detalhes completos** — headers, body, response, erro, geração de cURL
+- 🎨 **Syntax highlight** — JSON colorido nas responses (chaves, strings, números, booleans, null)
+- 🟢 **Badge no FAB** — contagem de requests (verde) ou erros (vermelho)
+- 👆 **Ativação por gesto** — long press (1.5s) ou swipe com 3 dedos
+- ⚙️ **Dev Menu** — item no menu de desenvolvedor do React Native
+- ⏱️ **Duração colorida** — cinza (<1s), amarelo (1-3s), vermelho (>3s)
+- ✨ **Animações suaves** — transições via LayoutAnimation
+- 📱 **Cross-platform** — iOS e Android com fontes nativas
+- 🔷 **TypeScript** — tipagem completa
+- 📦 **Leve** — zero dependências de UI (apenas `react-native-reanimated` no FAB e `react-native-share` para compartilhar)
 
 ## 📦 Instalação
 
@@ -24,217 +25,118 @@ npm install react-native-httptrace
 yarn add react-native-httptrace
 ```
 
-## 📥 Copiar Código-Fonte (Uso Local)
-
-Se você prefere ter o código localmente no seu projeto (para customização ou para não depender do npm), você pode copiar o código-fonte:
+### Peer dependencies
 
 ```bash
-npx react-native-httptrace copy
+npm install react-native-reanimated react-native-share
 ```
 
-Ou especifique um caminho customizado:
+## 🔧 Uso
 
-```bash
-npx react-native-httptrace copy ./src
-npx react-native-httptrace copy ./lib/utils
-```
+### HttpTraceView (Recomendado)
 
-Este comando irá:
-- Copiar todo o código-fonte para o diretório `httptrace/` no caminho especificado (ou no diretório atual se não especificado)
-- Manter a estrutura de arquivos original
-- Criar um README com instruções de uso
+Envolve a árvore do app. Ativa automaticamente em `__DEV__` ou ambientes de desenvolvimento/staging. Abre o modal por **long press** ou **gesto de 3 dedos + swipe**.
 
-Depois de copiar, você pode:
-
-1. **Atualizar suas importações** para usar os arquivos locais:
-```typescript
-import { useHttpTrace } from './httptrace/hooks/useHttpTrace';
-import { HttpTraceButton } from './httptrace/components/HttpTraceButton';
-import { networkLogger } from './httptrace/services/network-logger';
-```
-
-2. **Desinstalar a biblioteca npm** (opcional):
-```bash
-npm uninstall react-native-httptrace
-```
-
-3. **Remover o código local** quando não precisar mais:
-```bash
-rm -rf httptrace
-```
-
-## 🔧 Como Usar
-
-### Método 1: Automático (Recomendado)
-
-Captura **TODAS** as requests automaticamente:
-
-```typescript
-import { useHttpTrace } from 'react-native-httptrace';
+```tsx
+import { HttpTraceView } from 'react-native-httptrace';
 
 function App() {
-  useHttpTrace();
-  
-  return <YourApp />;
+  return (
+    <HttpTraceView>
+      <YourApp />
+    </HttpTraceView>
+  );
 }
 ```
 
-### Método 2: Manual
+### HttpTraceButton (FAB)
 
-Controle quando iniciar/parar:
+Botão flutuante arrastável. Toque abre o modal, long press esconde temporariamente. Mostra badge verde com total de requests ou vermelho com contagem de erros.
+
+```tsx
+import { HttpTraceButton } from 'react-native-httptrace';
+
+function App() {
+  return (
+    <>
+      <YourApp />
+      <HttpTraceButton />
+    </>
+  );
+}
+```
+
+### HttpTraceDevMenu
+
+Adiciona item "Http trace" ao Dev Menu do React Native.
+
+```tsx
+import { HttpTraceDevMenu } from 'react-native-httptrace';
+
+function App() {
+  return (
+    <>
+      <YourApp />
+      <HttpTraceDevMenu />
+    </>
+  );
+}
+```
+
+### ⚡ Controle manual
 
 ```typescript
 import { networkLogger } from 'react-native-httptrace';
 
 networkLogger.startLogging();
+networkLogger.stopLogging();
+networkLogger.clearRequests();
+networkLogger.configure({ maxRequests: 500 });
 ```
 
-### Método 3: Compatibilidade Axios
+## 📥 Copiar código-fonte (uso local)
 
-Seu código existente continua funcionando:
+Para customizar ou evitar dependência npm, copie o código para seu projeto:
+
+```bash
+npx react-native-httptrace copy
+npx react-native-httptrace copy ./src
+```
+
+Depois atualize os imports:
 
 ```typescript
-import { useHttpTrace } from 'react-native-httptrace';
-import axios from 'axios';
-
-function App() {
-  const api = axios.create();
-  useHttpTrace(api);
-  
-  return <YourApp />;
-}
+import { HttpTraceView } from './httptrace/components/HttpTraceView';
+import { networkLogger } from './httptrace/services/network-logger';
 ```
 
-## 🎨 Componentes de Interface
+## 🎯 Modal — funcionalidades
 
-### HttpTraceButton - Botão Flutuante
+### 🔍 Busca e filtros
 
-```typescript
-import { HttpTraceButton } from 'react-native-httptrace';
+- Campo de busca por URL ou método HTTP
+- Filtros por tipo: **XHR** / **Fetch** (toggle)
+- Filtros por status: **2xx** / **4xx** / **5xx** / **Errors** (toggle)
+- Badges ativas com ✕ para remoção rápida
+- Painel de filtros colapsável com animação
 
-<HttpTraceButton />
-```
+### 📄 Detalhe da request
 
-### HttpTraceShake - Abrir por Shake
+- Informações gerais: URL completa, método, status (colorido), duração, timestamp
+- Seções expansíveis: Request Headers, Request Body, Response, Error
+- Syntax highlight de JSON (chaves, strings, números, booleans, null)
+- Geração e cópia de comando cURL
+- Compartilhamento via `react-native-share`
 
-```typescript
-import { HttpTraceShake } from 'react-native-httptrace';
+### 📋 Listagem
 
-<HttpTraceShake />
-```
-
-### HttpTraceBadge - Badge Discreto
-
-```typescript
-import { HttpTraceBadge } from 'react-native-httptrace';
-
-<HttpTraceBadge position="top-right" showOnlyErrors />
-```
-
-### HttpTraceToast - Toast de Erros
-
-```typescript
-import { HttpTraceToast } from 'react-native-httptrace';
-
-<HttpTraceToast showOnlyErrors duration={3000} />
-```
-
-### HttpTraceStatusIndicator - Indicador de Status
-
-```typescript
-import { HttpTraceStatusIndicator } from 'react-native-httptrace';
-
-<HttpTraceStatusIndicator position="top" />
-```
-
-### useHttpTraceDevMenu - Menu do Desenvolvedor
-
-```typescript
-import { useHttpTraceDevMenu } from 'react-native-httptrace';
-
-function App() {
-  useHttpTraceDevMenu();
-  return <YourApp />;
-}
-```
-
-## 🎯 Exemplos Completos
-
-### Exemplo 1: Setup Mínimo
-
-```typescript
-import React from 'react';
-import { View } from 'react-native';
-import { useHttpTrace, HttpTraceButton } from 'react-native-httptrace';
-
-function App() {
-  useHttpTrace();
-
-  return (
-    <View style={{ flex: 1 }}>
-      <YourApp />
-      <HttpTraceButton />
-    </View>
-  );
-}
-```
-
-### Exemplo 2: UI Avançada
-
-```typescript
-import React from 'react';
-import { View } from 'react-native';
-import { 
-  useHttpTrace, 
-  HttpTraceShake, 
-  HttpTraceToast,
-  HttpTraceBadge 
-} from 'react-native-httptrace';
-
-function App() {
-  useHttpTrace({
-    config: {
-      maxRequests: 500,
-      captureRequestBody: true,
-      captureResponseBody: true,
-    }
-  });
-
-  return (
-    <View style={{ flex: 1 }}>
-      <YourApp />
-      <HttpTraceShake />
-      <HttpTraceToast />
-      <HttpTraceBadge position="top-right" />
-    </View>
-  );
-}
-```
-
-### Exemplo 3: Migração Axios
-
-```typescript
-import React from 'react';
-import { useHttpTrace } from 'react-native-httptrace';
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: 'https://api.exemplo.com',
-});
-
-function App() {
-  useHttpTrace(api, {
-    maxRequests: 1000,
-    enableConsoleLogs: false,
-  });
-
-  return <YourApp />;
-}
-```
+- Exibe apenas o pathname (sem domínio) para leitura rápida
+- Duração colorida: cinza (<1s), amarelo (1-3s), vermelho (>3s)
+- Badge de método com cor por status
 
 ## 🎨 API
 
-### `networkLogger`
+### networkLogger
 
 ```typescript
 interface NetworkLogger {
@@ -243,37 +145,31 @@ interface NetworkLogger {
   clearRequests(): void;
   subscribe(callback: (requests: NetworkRequest[]) => void): () => void;
   configure(config: Partial<NetworkLoggerConfig>): void;
-  createAxiosInterceptors(axiosInstance: any): void;
 }
 ```
 
-### `useHttpTrace`
+### useHttpTrace
 
 ```typescript
 function useHttpTrace(options?: {
-  axiosInstance?: any;
   config?: Partial<NetworkLoggerConfig>;
   autoStart?: boolean;
 }): {
-  startLogging: () => void;
-  stopLogging: () => void;
-  clearRequests: () => void;
+  shouldShowHttpTrace: boolean;
 };
 ```
 
-### Configuração
+Ativa automaticamente em `__DEV__` ou quando `APP_ENV` é `development`/`staging`.
+
+### NetworkLoggerConfig
 
 ```typescript
 interface NetworkLoggerConfig {
-  baseUrl?: string;
-  maxRequests?: number;
-  enableConsoleLogs?: boolean;
-  captureRequestBody?: boolean;
-  captureResponseBody?: boolean;
+  maxRequests?: number; // padrão: 1000
 }
 ```
 
-### Request
+### NetworkRequest
 
 ```typescript
 interface NetworkRequest {
@@ -282,6 +178,7 @@ interface NetworkRequest {
   url: string;
   fullUrl?: string;
   headers: Record<string, string>;
+  responseHeaders?: Record<string, string>;
   body?: any;
   status?: number;
   response?: any;
@@ -296,104 +193,43 @@ interface NetworkRequest {
 
 ## 📱 Componentes
 
+### HttpTraceView
+
+```typescript
+interface HttpTraceViewProps {
+  children?: React.ReactNode;
+  longPressDuration?: number;   // padrão: 1500ms
+  enableLongPress?: boolean;    // padrão: true
+}
+```
+
 ### HttpTraceButton
 
 ```typescript
 interface HttpTraceButtonProps {
-  visible?: boolean;
+  visible?: boolean; // padrão: true
 }
 ```
 
-### HttpTraceShake
+### HttpTraceModal
 
 ```typescript
-interface HttpTraceShakeProps {
-  enabled?: boolean;
-  shakeThreshold?: number;
+interface HttpTraceModalProps {
+  visible: boolean;
+  onClose: () => void;
+  title?: string;            // padrão: '🌐 HTTP Trace'
+  showCloseButton?: boolean; // padrão: true
 }
 ```
 
-### HttpTraceBadge
+### HttpTraceDevMenu
 
 ```typescript
-interface HttpTraceBadgeProps {
-  position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
-  showOnlyErrors?: boolean;
-  showCount?: boolean;
+interface HttpTraceDevMenuProps {
+  enabled?: boolean; // padrão: true
+  title?: string;    // padrão: 'HTTP Trace'
 }
 ```
-
-### HttpTraceToast
-
-```typescript
-interface HttpTraceToastProps {
-  position?: 'top' | 'bottom';
-  duration?: number;
-  showOnlyErrors?: boolean;
-  maxWidth?: number;
-}
-```
-
-### HttpTraceStatusIndicator
-
-```typescript
-interface HttpTraceStatusIndicatorProps {
-  position?: 'top' | 'bottom';
-  showPending?: boolean;
-  showErrors?: boolean;
-}
-```
-
-## ⚙️ Configurações
-
-### `maxRequests`
-Número máximo de requisições em memória. Padrão: `1000`
-
-### `enableConsoleLogs`
-Logs no console. Padrão: `true`
-
-### `captureRequestBody`
-Captura corpo das requests. Padrão: `true`
-
-### `captureResponseBody`
-Captura corpo das responses. Padrão: `true`
-
-## 🚀 Migração
-
-### De versões antigas
-
-Seu código existente continua funcionando:
-
-```typescript
-// ✅ Funciona igual
-useNetworkLogger(axiosInstance) → useHttpTrace(axiosInstance)
-NetworkLoggerButton → HttpTraceButton
-NetworkLoggerModal → HttpTraceModal
-```
-
-### De outras libs
-
-```typescript
-// Flipper Network Plugin → react-native-httptrace
-useHttpTrace();
-
-// React Native Debugger → react-native-httptrace  
-<HttpTraceButton />
-
-// Custom solutions → react-native-httptrace
-<HttpTraceShake />
-```
-
-## 🔧 Funcionalidades
-
-- **Universal**: Captura fetch, XMLHttpRequest, axios
-- **Sem setup**: `useHttpTrace()` e pronto
-- **Múltiplas UIs**: Botão, shake, toast, badge
-- **Modal integrado**: Todos os componentes incluem
-- **Clipboard real**: Cópia funcional
-- **Sem styled-components**: Bundle menor
-- **TypeScript**: Tipagem completa
-- **Configurável**: Controle total
 
 ## 📝 Licença
 
@@ -401,4 +237,4 @@ MIT
 
 ## 🤝 Contribuição
 
-PRs são bem-vindos! 
+PRs são bem-vindos!

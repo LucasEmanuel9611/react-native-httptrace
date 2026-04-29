@@ -13,7 +13,7 @@ export interface NetworkRequest {
   endTime?: number;
   duration?: number;
   timestamp: Date;
-  type?: "fetch" | "xhr" | "axios";
+  type?: 'fetch' | 'xhr' | 'axios';
 }
 
 type RequestFilter = (request: NetworkRequest) => boolean;
@@ -29,24 +29,24 @@ interface NetworkLoggerState {
   subscribers: NetworkLoggerCallback[];
   config: NetworkLoggerConfig;
   isActive: boolean;
-  originalFetch?: typeof fetch;
-  originalXHROpen?: typeof XMLHttpRequest.prototype.open;
-  originalXHRSend?: typeof XMLHttpRequest.prototype.send;
-  originalXHRSetRequestHeader?: typeof XMLHttpRequest.prototype.setRequestHeader;
+  originalFetch?: typeof globalThis.fetch;
+  originalXHROpen?: (method: string, url: string, async?: boolean) => void;
+  originalXHRSend?: (body?: string | null) => void;
+  originalXHRSetRequestHeader?: (name: string, value: string) => void;
 }
 
 const builtinFilters: RequestFilter[] = [
-  (request: NetworkRequest): boolean => request.method.toLowerCase() !== "head",
+  (request: NetworkRequest): boolean => request.method.toLowerCase() !== 'head',
   (request: NetworkRequest): boolean =>
     !shouldIgnoreLocalHostUrls(request.url) &&
-    !shouldIgnoreLocalHostUrls(request.fullUrl || ""),
+    !shouldIgnoreLocalHostUrls(request.fullUrl || ''),
 ];
 
 const applyFilters = (
   request: NetworkRequest,
-  filters: RequestFilter[]
+  filters: RequestFilter[],
 ): boolean => {
-  return filters.every((filter) => filter(request));
+  return filters.every(filter => filter(request));
 };
 
 const defaultConfig: NetworkLoggerConfig = {
@@ -54,7 +54,7 @@ const defaultConfig: NetworkLoggerConfig = {
 };
 
 const createNetworkLoggerState = (
-  config: NetworkLoggerConfig = {}
+  config: NetworkLoggerConfig = {},
 ): NetworkLoggerState => ({
   requests: [],
   subscribers: [],
@@ -70,24 +70,24 @@ const generateId = (): string => {
 
 const notifySubscribers = (): void => {
   const currentRequests = [...networkLoggerState.requests];
-  networkLoggerState.subscribers.forEach((callback) => {
+  networkLoggerState.subscribers.forEach(callback => {
     callback(currentRequests);
   });
 };
 
 const shouldIgnoreLocalHostUrls = (url: string): boolean => {
   const localPatterns = [
-    "localhost",
-    "127.0.0.1",
-    "0.0.0.0",
-    "192.168.",
-    "10.0.",
-    "172.16.",
-    "file://",
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+    '192.168.',
+    '10.0.',
+    '172.16.',
+    'file://',
   ];
 
-  return localPatterns.some((pattern) =>
-    url.toLowerCase().includes(pattern.toLowerCase())
+  return localPatterns.some(pattern =>
+    url.toLowerCase().includes(pattern.toLowerCase()),
   );
 };
 
@@ -100,7 +100,7 @@ const addRequest = (request: NetworkRequest): void => {
   const newRequestAtBeginning = [request, ...currentRequests];
   const keepOnlyLastRequests = newRequestAtBeginning.slice(
     0,
-    networkLoggerState.config.maxRequests || 1000
+    networkLoggerState.config.maxRequests || 1000,
   );
 
   networkLoggerState = {
@@ -128,20 +128,126 @@ const updateRequest = (id: string, updates: Partial<NetworkRequest>): void => {
 const parseBodySync = (body: any): any => {
   if (body === undefined || body === null) return undefined;
 
-  if (typeof body === "string") {
+  if (typeof body === 'string') {
     const trimmed = body.trim();
     if (trimmed.length === 0) return undefined;
     return body;
   }
-  if (body instanceof FormData) return "[FormData]";
-  if (body instanceof ArrayBuffer) return "[ArrayBuffer]";
-  if (body instanceof Blob) return "[Blob]";
+  if (body instanceof FormData) return '[FormData]';
+  if (body instanceof ArrayBuffer) return '[ArrayBuffer]';
+  if (body instanceof Blob) return '[Blob]';
 
   try {
     return JSON.stringify(body);
   } catch {
     return String(body);
   }
+};
+
+const parseFetchHeaders = (headers: Headers): Record<string, string> => {
+  const parsed: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    parsed[key] = value;
+  });
+  return parsed;
+};
+
+const extractUrlFromFetchInput = (input: string | Request | URL): string => {
+  if (typeof input === 'string') {
+    return input;
+  }
+  if (input instanceof URL) {
+    return input.href;
+  }
+  return input.url;
+};
+
+const createFetchInterceptor = () => {
+  if (!networkLoggerState.originalFetch) {
+    networkLoggerState.originalFetch = globalThis.fetch;
+  }
+
+  globalThis.fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const requestId = generateId();
+    const startTime = Date.now();
+    const method = (init?.method || 'GET').toUpperCase();
+    const url = extractUrlFromFetchInput(input);
+
+    const requestHeaders: Record<string, string> = {};
+    if (init?.headers) {
+      if (init.headers instanceof Headers) {
+        init.headers.forEach((value, key) => {
+          requestHeaders[key] = value;
+        });
+      } else if (Array.isArray(init.headers)) {
+        init.headers.forEach(([key, value]) => {
+          requestHeaders[key] = value;
+        });
+      } else {
+        Object.entries(init.headers).forEach(([key, value]) => {
+          requestHeaders[key] = value;
+        });
+      }
+    }
+
+    const request: NetworkRequest = {
+      id: requestId,
+      method,
+      url,
+      fullUrl: url,
+      headers: requestHeaders,
+      body: parseBodySync(init?.body),
+      startTime,
+      timestamp: new Date(),
+      type: 'fetch',
+    };
+
+    addRequest(request);
+
+    try {
+      const response = await networkLoggerState.originalFetch!(input, init);
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      const responseHeaders = parseFetchHeaders(response.headers);
+
+      let responseBody: any;
+      try {
+        const clonedResponse = response.clone();
+        const text = await clonedResponse.text();
+        try {
+          responseBody = JSON.parse(text);
+        } catch {
+          responseBody = text;
+        }
+      } catch {
+        responseBody = '[RESPONSE_UNAVAILABLE]';
+      }
+
+      updateRequest(requestId, {
+        status: response.status,
+        response: responseBody,
+        responseHeaders,
+        endTime,
+        duration,
+      });
+
+      return response;
+    } catch (fetchError) {
+      const endTime = Date.now();
+      updateRequest(requestId, {
+        status: 0,
+        error:
+          fetchError instanceof Error ? fetchError.message : String(fetchError),
+        endTime,
+        duration: endTime - startTime,
+      });
+      throw fetchError;
+    }
+  };
 };
 
 const createXHRInterceptor = () => {
@@ -154,7 +260,7 @@ const createXHRInterceptor = () => {
 
   XMLHttpRequest.prototype.setRequestHeader = function (
     name: string,
-    value: string
+    value: string,
   ) {
     const loggerData = (this as any)._networkLogger;
     if (loggerData && loggerData.headers) {
@@ -163,7 +269,7 @@ const createXHRInterceptor = () => {
     return networkLoggerState.originalXHRSetRequestHeader!.call(
       this,
       name,
-      value
+      value,
     );
   };
 
@@ -187,7 +293,7 @@ const createXHRInterceptor = () => {
       this,
       method,
       url.toString(),
-      ...args
+      ...args,
     );
   };
 
@@ -204,7 +310,7 @@ const createXHRInterceptor = () => {
         body: parseBodySync(body),
         startTime: loggerData.startTime,
         timestamp: new Date(),
-        type: "xhr",
+        type: 'xhr',
       };
 
       addRequest(request);
@@ -218,28 +324,28 @@ const createXHRInterceptor = () => {
 
           let responseBody: any;
           try {
-            if (this.responseType === "" || this.responseType === "text") {
+            if (this.responseType === '' || this.responseType === 'text') {
               responseBody = this.responseText
                 ? JSON.parse(this.responseText)
                 : `${this.responseText}`;
-            } else if (this.responseType === "blob" && this.response) {
+            } else if (this.responseType === 'blob' && this.response) {
               try {
                 const blob = this.response as Blob;
                 if (blob.size === 0) {
-                  responseBody = `[EMPTY BLOB: ${blob.type || "unknown"}]`;
-                } else if (blob.size < 10000 && blob.type.startsWith("text/")) {
+                  responseBody = `[EMPTY BLOB: ${blob.type || 'unknown'}]`;
+                } else if (blob.size < 10000 && blob.type.startsWith('text/')) {
                   responseBody = `[TEXT BLOB: ${blob.size} bytes]`;
                 } else if (blob.size < 10000) {
-                  responseBody = `[BLOB: ${blob.type || "unknown"}, ${
+                  responseBody = `[BLOB: ${blob.type || 'unknown'}, ${
                     blob.size
                   } bytes]`;
                 } else {
-                  responseBody = `[BLOB: ${blob.type || "unknown"}, ${
+                  responseBody = `[BLOB: ${blob.type || 'unknown'}, ${
                     blob.size
                   } bytes - too large]`;
                 }
               } catch {
-                responseBody = "[BLOB DATA]";
+                responseBody = '[BLOB DATA]';
               }
             } else {
               responseBody = `[${this.responseType.toUpperCase()} DATA]`;
@@ -247,11 +353,11 @@ const createXHRInterceptor = () => {
           } catch {
             try {
               responseBody =
-                this.responseType === "" || this.responseType === "text"
-                  ? String(this.responseText || "")
+                this.responseType === '' || this.responseType === 'text'
+                  ? String(this.responseText || '')
                   : `[${this.responseType.toUpperCase()} DATA]`;
             } catch {
-              responseBody = "[RESPONSE_UNAVAILABLE]";
+              responseBody = '[RESPONSE_UNAVAILABLE]';
             }
           }
 
@@ -259,10 +365,12 @@ const createXHRInterceptor = () => {
           try {
             const allHeaders = this.getAllResponseHeaders();
             if (allHeaders) {
-              allHeaders.split("\r\n").forEach((line) => {
-                const parts = line.split(": ");
-                if (parts.length === 2 && parts[0] && parts[1]) {
-                  responseHeaders[parts[0]] = parts[1];
+              allHeaders.split('\r\n').forEach(line => {
+                const separatorIndex = line.indexOf(': ');
+                if (separatorIndex > 0) {
+                  const headerKey = line.substring(0, separatorIndex);
+                  const headerValue = line.substring(separatorIndex + 2);
+                  responseHeaders[headerKey] = headerValue;
                 }
               });
             }
@@ -271,7 +379,7 @@ const createXHRInterceptor = () => {
           updateRequest(loggerData.id, {
             status: this.status,
             response: responseBody,
-            responseHeaders: responseHeaders,
+            responseHeaders,
             endTime,
             duration,
           });
@@ -291,6 +399,7 @@ const startLogging = (): void => {
   if (networkLoggerState.isActive) return;
 
   createXHRInterceptor();
+  createFetchInterceptor();
 
   networkLoggerState.isActive = true;
 };
@@ -336,9 +445,7 @@ const subscribe = (callback: NetworkLoggerCallback): (() => void) => {
   return () => {
     networkLoggerState = {
       ...networkLoggerState,
-      subscribers: networkLoggerState.subscribers.filter(
-        (cb) => cb !== callback
-      ),
+      subscribers: networkLoggerState.subscribers.filter(cb => cb !== callback),
     };
   };
 };
