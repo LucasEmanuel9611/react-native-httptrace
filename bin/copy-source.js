@@ -34,7 +34,7 @@ function parseArguments() {
 
   if (args.length > 1) {
     console.log(
-      `❌ Muitos argumentos. Use: npx react-native-httptrace copy [caminho]`
+      `❌ Muitos argumentos. Use: npx react-native-httptrace copy [caminho-do-app]`
     );
     process.exit(1);
   }

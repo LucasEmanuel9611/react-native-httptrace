@@ -104,18 +104,37 @@ networkLogger.configure({ maxRequests: 500 });
 
 ## 📥 Copiar código-fonte (uso local)
 
-O pacote no npm contém apenas a pasta compilada `lib`. Para copiar o TypeScript (`src`) para dentro do seu projeto, clone o repositório da lib, rode `npm run build` se precisar, e na raiz do clone execute:
+Na **raiz do seu app** React Native (onde está o `package.json` do projeto):
 
 ```bash
-node bin/react-native-httptrace.js copy
-node bin/react-native-httptrace.js copy /caminho/do/seu/projeto
+cd /caminho/do/seu/app-react-native
+npx react-native-httptrace copy
 ```
 
-Depois atualize os imports:
+Se preferir informar o diretório explicitamente:
+
+```bash
+npx react-native-httptrace copy /caminho/do/seu/app-react-native
+```
+
+Isso cria a pasta **`httptrace/` na raiz do app** com o TypeScript da lib. Sem npm, com o clone da lib no disco:
+
+```bash
+cd /caminho/do/seu/app-react-native
+node /caminho/do/react-native-httptrace/bin/react-native-httptrace.js copy
+```
+
+Ou, de qualquer pasta, passando a raiz do app:
+
+```bash
+node /caminho/do/react-native-httptrace/bin/react-native-httptrace.js copy /caminho/do/seu/app-react-native
+```
+
+Depois atualize os imports (ex.: a partir de `src/App.tsx` ou `src/app.tsx`):
 
 ```typescript
-import { HttpTraceView } from './httptrace/components/HttpTraceView';
-import { networkLogger } from './httptrace/services/network-logger';
+import { HttpTraceView } from '../httptrace';
+import { networkLogger } from '../httptrace/services/network-logger';
 ```
 
 ## 🎯 Modal — funcionalidades

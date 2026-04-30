@@ -22,17 +22,23 @@ if (command === 'copy') {
   console.log('react-native-httptrace');
   console.log('');
   console.log('Comandos disponíveis:');
-  console.log('  copy [caminho]  Copia o código-fonte para o projeto');
+  console.log('  copy [caminho-do-app]  Copia o código-fonte para <app>/httptrace');
   console.log('');
-  console.log('Exemplos:');
+  console.log('Exemplos (rode na raiz do app, onde está o package.json do projeto):');
   console.log('  npx react-native-httptrace copy');
-  console.log('  npx react-native-httptrace copy ./src');
+  console.log('');
+  console.log('Ou informando o diretório do app:');
+  console.log('  npx react-native-httptrace copy /caminho/do/app-react-native');
+  console.log('');
+  console.log('Com o repositório da lib no disco (sem npm):');
+  console.log('  cd /caminho/do/app-react-native');
+  console.log('  node /caminho/do/react-native-httptrace/bin/react-native-httptrace.js copy');
   process.exit(0);
 } else {
   console.log(`❌ Comando desconhecido: "${command}"`);
   console.log('');
   console.log('Comandos disponíveis:');
-  console.log('  copy [caminho]  Copia o código-fonte para o projeto');
+  console.log('  copy [caminho-do-app]  Copia o código-fonte para <app>/httptrace');
   process.exit(1);
 }
 
