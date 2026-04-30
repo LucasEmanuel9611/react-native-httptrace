@@ -35,14 +35,14 @@ npm install react-native-reanimated react-native-share
 
 ### HttpTraceView (Recomendado)
 
-Envolve a árvore do app. Ativa automaticamente em `__DEV__` ou ambientes de desenvolvimento/staging. Abre o modal por **long press** ou **gesto de 3 dedos + swipe**.
+Envolve a árvore do app. Use a prop `enabled` para controlar em quais ambientes o inspector fica ativo. Abre o modal por **long press** ou **gesto de 3 dedos + swipe**.
 
 ```tsx
 import { HttpTraceView } from 'react-native-httptrace';
 
 function App() {
   return (
-    <HttpTraceView>
+    <HttpTraceView enabled={__DEV__}>
       <YourApp />
     </HttpTraceView>
   );
@@ -152,14 +152,15 @@ interface NetworkLogger {
 
 ```typescript
 function useHttpTrace(options?: {
+  enabled?: boolean;    // padrão: true
   config?: Partial<NetworkLoggerConfig>;
-  autoStart?: boolean;
+  autoStart?: boolean;  // padrão: true
 }): {
   shouldShowHttpTrace: boolean;
 };
 ```
 
-Ativa automaticamente em `__DEV__` ou quando `APP_ENV` é `development`/`staging`.
+O controle de ambiente é responsabilidade do projeto consumidor via `enabled`.
 
 ### NetworkLoggerConfig
 
@@ -198,6 +199,7 @@ interface NetworkRequest {
 ```typescript
 interface HttpTraceViewProps {
   children?: React.ReactNode;
+  enabled?: boolean;            // padrão: true
   longPressDuration?: number;   // padrão: 1500ms
   enableLongPress?: boolean;    // padrão: true
 }

@@ -1,6 +1,6 @@
 {
   "name": "react-native-httptrace",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "A lightweight network request logger for React Native with real-time UI",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

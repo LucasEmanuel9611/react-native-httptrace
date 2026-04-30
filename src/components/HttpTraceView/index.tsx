@@ -6,6 +6,7 @@ import { HttpTraceModal } from "../HttpTraceModal";
 
 interface HttpTraceViewProps {
   children?: React.ReactNode;
+  enabled?: boolean;
   longPressDuration?: number;
   enableLongPress?: boolean;
 }
@@ -160,10 +161,11 @@ function HttpTraceGestureDetector({
 
 export function HttpTraceView({
   children,
+  enabled = true,
   longPressDuration,
   enableLongPress,
 }: HttpTraceViewProps) {
-  const { shouldShowHttpTrace } = useHttpTrace();
+  const { shouldShowHttpTrace } = useHttpTrace({ enabled });
 
   if (!shouldShowHttpTrace) {
     return children as React.ReactElement;
