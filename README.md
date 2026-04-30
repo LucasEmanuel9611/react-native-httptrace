@@ -31,6 +31,14 @@ yarn add react-native-httptrace
 npm install react-native-reanimated react-native-share
 ```
 
+## 🔨 Desenvolvimento (repositório)
+
+A pasta `lib/` é gerada pelo TypeScript e **não entra no Git** (só o `src/`). Depois do clone: `npm install` e `npm run build` quando for trabalhar no código.
+
+**Publicar:** suba a versão no `package.json` (ou `npm version patch`) e rode **`npm publish`**. O hook `prepack` roda sozinho `build` + `test` antes de gerar o pacote — não precisa encadear outros comandos na mão.
+
+Opcional antes do publish: `npm pack --dry-run` para ver o que entra no `.tgz`.
+
 ## 🔧 Uso
 
 ### HttpTraceView (Recomendado)
@@ -96,11 +104,11 @@ networkLogger.configure({ maxRequests: 500 });
 
 ## 📥 Copiar código-fonte (uso local)
 
-Para customizar ou evitar dependência npm, copie o código para seu projeto:
+O pacote no npm contém apenas a pasta compilada `lib`. Para copiar o TypeScript (`src`) para dentro do seu projeto, clone o repositório da lib, rode `npm run build` se precisar, e na raiz do clone execute:
 
 ```bash
-npx react-native-httptrace copy
-npx react-native-httptrace copy ./src
+node bin/react-native-httptrace.js copy
+node bin/react-native-httptrace.js copy /caminho/do/seu/projeto
 ```
 
 Depois atualize os imports:
